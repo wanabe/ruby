@@ -924,6 +924,7 @@ $(srcs_vpath)vm.inc: $(srcdir)/tool/ruby_vm/views/vm.inc.erb
 $(srcs_vpath)mjit_compile.inc: $(srcdir)/tool/ruby_vm/views/mjit_compile.inc.erb \
   $(srcdir)/tool/ruby_vm/views/_mjit_compile_insn.erb $(srcdir)/tool/ruby_vm/views/_mjit_compile_send.erb \
   $(srcdir)/tool/ruby_vm/views/_mjit_compile_insn_body.erb
+$(srcs_vpath)mjit_var.inc: $(srcdir)/tool/ruby_vm/views/mjit_var.inc.erb
 
 common-srcs: $(srcs_vpath)parse.c $(srcs_vpath)lex.c $(srcs_vpath)enc/trans/newline.c $(srcs_vpath)id.c \
 	     srcs-lib srcs-ext incs
@@ -2043,6 +2044,7 @@ mjit_compile.$(OBJEXT): {$(VPATH)}internal.h
 mjit_compile.$(OBJEXT): {$(VPATH)}mjit.h
 mjit_compile.$(OBJEXT): {$(VPATH)}mjit_compile.c
 mjit_compile.$(OBJEXT): {$(VPATH)}mjit_compile.inc
+mjit_compile.$(OBJEXT): {$(VPATH)}mjit_var.inc
 mjit_compile.$(OBJEXT): {$(VPATH)}vm_core.h
 load.$(OBJEXT): $(CCAN_DIR)/check_type/check_type.h
 load.$(OBJEXT): $(CCAN_DIR)/container_of/container_of.h

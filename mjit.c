@@ -705,6 +705,138 @@ compile_c_to_so(const char *c_file, const char *so_file)
     return exit_code == 0;
 }
 
+/* Compile C file to o. It returns 1 if it succeeds. */
+static int
+compile_c_to_o(const char *c_file, const char *o_file)
+{
+    int exit_code;
+    const char *files[] = {
+#ifdef __clang__
+        "-include-pch", NULL,
+#endif
+        "-c",
+#ifndef _MSC_VER
+        "-o",
+#endif
+        NULL, NULL, NULL};
+    const char *libs[] = {
+#ifdef _WIN32
+# ifdef _MSC_VER
+        MJIT_LIBS
+        "-link",
+        libruby_installed,
+        libruby_build,
+# else
+        /* Look for ruby.dll.a in build and install directories. */
+        libruby_installed,
+        libruby_build,
+        MJIT_LIBS
+        "-lmsvcrt",
+        "-lgcc",
+# endif
+#endif
+        NULL};
+    char **args;
+#ifdef _MSC_VER
+    char *p;
+    int olen;
+#endif
+
+    files[numberof(files)-2] = c_file;
+#ifdef _MSC_VER
+    olen = strlen(o_file);
+    files[0] = p = xmalloc(rb_strlen_lit("-Fe") + olen + 1);
+    p = append_lit(p, "-Fe");
+    p = append_str2(p, o_file, olen);
+    *p = '\0';
+#else
+# ifdef __clang__
+    files[1] = pch_file;
+# endif
+    files[numberof(files)-3] = o_file;
+#endif
+    args = form_args(5, CC_LDSHARED_ARGS, CC_CODEFLAG_ARGS,
+                     files, libs, CC_DLDFLAGS_ARGS);
+    if (args == NULL)
+        return FALSE;
+
+    exit_code = exec_process(cc_path, args);
+    xfree(args);
+#ifdef _MSC_VER
+    xfree((char *)files[0]);
+#endif
+
+    if (exit_code != 0)
+        verbose(2, "compile_c_to_o: compile error: %d", exit_code);
+    return exit_code == 0;
+}
+
+/* Compile var C file and o to so. It returns 1 if it succeeds. */
+static int
+compile_var_and_o_to_so(const char *var_file, const char *o_file, const char *so_file)
+{
+    int exit_code;
+    const char *files[] = {
+#ifdef __clang__
+        "-include-pch", NULL,
+#endif
+#ifndef _MSC_VER
+        "-o",
+#endif
+        NULL, NULL, NULL, NULL};
+    const char *libs[] = {
+#ifdef _WIN32
+# ifdef _MSC_VER
+        MJIT_LIBS
+        "-link",
+        libruby_installed,
+        libruby_build,
+# else
+        /* Look for ruby.dll.a in build and install directories. */
+        libruby_installed,
+        libruby_build,
+        MJIT_LIBS
+        "-lmsvcrt",
+        "-lgcc",
+# endif
+#endif
+        NULL};
+    char **args;
+#ifdef _MSC_VER
+    char *p;
+    int solen;
+#endif
+
+    files[numberof(files)-3] = var_file;
+    files[numberof(files)-2] = o_file;
+#ifdef _MSC_VER
+    solen = strlen(so_file);
+    files[0] = p = xmalloc(rb_strlen_lit("-Fe") + solen + 1);
+    p = append_lit(p, "-Fe");
+    p = append_str2(p, so_file, solen);
+    *p = '\0';
+#else
+# ifdef __clang__
+    files[1] = pch_file;
+# endif
+    files[numberof(files)-4] = so_file;
+#endif
+    args = form_args(5, CC_LDSHARED_ARGS, CC_CODEFLAG_ARGS,
+                     files, libs, CC_DLDFLAGS_ARGS);
+    if (args == NULL)
+        return FALSE;
+
+    exit_code = exec_process(cc_path, args);
+    xfree(args);
+#ifdef _MSC_VER
+    xfree((char *)files[0]);
+#endif
+
+    if (exit_code != 0)
+        verbose(2, "compile_c_to_so: compile error: %d", exit_code);
+    return exit_code == 0;
+}
+
 static void *
 load_func_from_so(const char *so_file, const char *funcname, struct rb_mjit_unit *unit)
 {
@@ -754,21 +886,49 @@ print_jit_result(const char *result, const struct rb_mjit_unit *unit, const doub
 static mjit_func_t
 convert_unit_to_func(struct rb_mjit_unit *unit)
 {
-    char c_file_buff[70], *c_file = c_file_buff, *so_file, funcname[35];
+    char c_file_buff[70], *c_file = c_file_buff, *so_file, funcname[35], *var_file;
     int success;
     int fd;
+    char create_o_cache = 0;
     FILE *f;
     void *func;
     double start_time, end_time;
     int c_file_len = (int)sizeof(c_file_buff);
     static const char c_ext[] = ".c";
     static const char so_ext[] = DLEXT;
+    char *o_file = NULL;
     const int access_mode =
 #ifdef O_BINARY
         O_BINARY|
 #endif
         O_WRONLY|O_EXCL|O_CREAT;
 
+    if (mjit_opts.cache_objs) {
+        struct stat o_st, r_st;
+        char *rb_file = RSTRING_PTR(rb_iseq_path(unit->iseq));
+        if (stat(rb_file, &r_st)) {
+            o_file = NULL;
+            verbose(2, "Can't get stat of '%s'", rb_file);
+        } else {
+            o_file = malloc(strlen(rb_file) + 15);
+            sprintf(o_file, "%s.%d.o", rb_file, FIX2INT(unit->iseq->body->location.first_lineno));
+            verbose(2, "Check Cache '%s'", o_file);
+            if (stat(o_file, &o_st)) {
+                if (errno == ENOENT) {
+                    create_o_cache = 1;
+                    verbose(2, "Create '%s'", o_file);
+                } else {
+                    o_file = NULL;
+                    verbose(2, "Can't get stat of '%s'", o_file);
+                }
+            } else if(o_st.st_mtime > r_st.st_mtime) {
+                verbose(2, "Use cache '%s'", o_file);
+            } else {
+                create_o_cache = 1;
+                verbose(2, "Update '%s'", o_file);
+            }
+        }
+    }
     c_file_len = sprint_uniq_filename(c_file_buff, c_file_len, unit->id, MJIT_TMP_PREFIX, c_ext);
     if (c_file_len >= (int)sizeof(c_file_buff)) {
         ++c_file_len;
@@ -781,6 +941,49 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
     memcpy(&so_file[c_file_len - sizeof(c_ext)], so_ext, sizeof(so_ext));
     sprintf(funcname, "_mjit%d", unit->id);
 
+    if (o_file) {
+        static const char var_suffix[] = "_var";
+        var_file = alloca(c_file_len + sizeof(var_suffix));
+        memcpy(var_file, c_file, c_file_len - sizeof(c_ext));
+        memcpy(&var_file[c_file_len - sizeof(c_ext)], var_suffix, sizeof(var_suffix));
+        memcpy(&var_file[c_file_len - sizeof(c_ext) + sizeof(var_suffix) - 1], c_ext, sizeof(c_ext));
+        verbose(2, "Create '%s'", var_file);
+
+        fd = rb_cloexec_open(var_file, access_mode, 0600);
+        if (fd < 0 || (f = fdopen(fd, "w")) == NULL) {
+            int e = errno;
+            if (fd >= 0) (void)close(fd);
+            verbose(1, "Failed to fopen '%s', giving up JIT for it (%s)", var_file, strerror(e));
+            return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
+        }
+#ifdef __clang__
+    /* -include-pch is used for Clang */
+#else
+    {
+# ifdef __GNUC__
+        const char *s = pch_file;
+# else
+        const char *s = header_file;
+# endif
+        const char *e = header_name_end(s);
+
+        fprintf(f, "#include \"");
+        /* print pch_file except .gch */
+        for (; s < e; s++) {
+            switch(*s) {
+              case '\\': case '"':
+                fputc('\\', f);
+            }
+            fputc(*s, f);
+        }
+        fprintf(f, "\"\n");
+    }
+#endif
+        mjit_compile_var(f, unit->iseq->body, funcname);
+        fclose(f);
+    }
+
+    if (!o_file || create_o_cache) {
     fd = rb_cloexec_open(c_file, access_mode, 0600);
     if (fd < 0 || (f = fdopen(fd, "w")) == NULL) {
         int e = errno;
@@ -835,7 +1038,8 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
         verbose(2, "start compile: %s@%s:%d -> %s", label, path, lineno, c_file);
         fprintf(f, "/* %s@%s:%d */\n\n", label, path, lineno);
     }
-    success = mjit_compile(f, unit->iseq->body, funcname);
+    success = mjit_compile(f, unit->iseq->body, funcname, create_o_cache);
+    fclose(f);
 
     /* release blocking mjit_gc_start_hook */
     CRITICAL_SECTION_START(3, "after mjit_compile to wakeup client for GC");
@@ -844,16 +1048,26 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
     rb_native_cond_signal(&mjit_client_wakeup);
     CRITICAL_SECTION_FINISH(3, "in worker to wakeup client for GC");
 
-    fclose(f);
     if (!success) {
         if (!mjit_opts.save_temps)
             remove(c_file);
         print_jit_result("failure", unit, 0, c_file);
         return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
     }
+    }
 
     start_time = real_ms_time();
-    success = compile_c_to_so(c_file, so_file);
+    if (o_file) {
+        if (create_o_cache) {
+            success = compile_c_to_o(c_file, o_file);
+            success = compile_var_and_o_to_so(var_file, o_file, so_file) && success;
+        } else {
+            success = compile_var_and_o_to_so(var_file, o_file, so_file);
+        }
+        free(o_file);
+    } else {
+        success = compile_c_to_so(c_file, so_file);
+    }
     end_time = real_ms_time();
 
     if (!mjit_opts.save_temps)

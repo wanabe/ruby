@@ -1,0 +1,35 @@
+/* -*- mode:c; style:ruby; coding: utf-8; indent-tabs-mode: nil -*- */
+
+% # Copyright (c)   All rights reserved.
+% #
+% # This file is a part of  the programming language Ruby.  Permission is hereby
+% # granted, to either  redistribute and/or modify this file,  provided that the
+% # conditions mentioned  in the  file COPYING  are met.   Consult the  file for
+% # details.
+<%= render 'copyright' %>
+%
+% # This is an ERB template that generates Ruby code that generates C code that
+% # generates JIT-ed C code.
+<%= render 'notice', locals: {
+    this_file: 'is the main part of compile_insn() in mjit_compile.c',
+    edit: __FILE__,
+} -%>
+%
+% unsupported_insns = RubyVM::MJIT::UnsupportedInstructions
+
+switch (insn) {
+% (RubyVM::BareInstructions.to_a + RubyVM::OperandsUnifications.to_a).each do |insn|
+%   next if unsupported_insns.include?(insn.name)
+  case BIN(<%= insn.name %>):
+%   insn.opes.each_with_index do |ope, i|
+%     next if %w(... OFFSET lindex_t rb_num_t).include?(ope.fetch(:type))
+    fprintf(f, "/* <%= insn.name %> <%= ope.fetch(:type) %> */;\n");
+#if MJIT_EXTERN
+    fprintf(f, "extern const <%= ope.fetch(:type) %> mjit_var_%d_<%= i %>;\n", pos);
+#else
+    fprintf(f, "const <%= ope.fetch(:type) %> mjit_var_%d_<%= i %> = 0x%"PRIxVALUE";\n", pos, operands[<%= i %>]);
+#endif
+%   end
+    break;
+% end
+}

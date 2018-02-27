@@ -274,6 +274,7 @@ usage(const char *name, int help)
         M("--jit-debug",         "", "Enable MJIT debugging (very slow)"),
         M("--jit-wait",          "", "Wait until JIT compilation is finished everytime (for testing)"),
         M("--jit-save-temps",    "", "Save MJIT temporary files in $TMP or /tmp (for testing)"),
+        M("--jit-cache-objs",    "", "Cache object files"),
         M("--jit-verbose=num",   "", "Print MJIT logs of level num or less to stderr (default: 0)"),
         M("--jit-max-cache=num", "", "Max number of methods to be JIT-ed in a cache (default: 1000)"),
         M("--jit-min-calls=num", "", "Number of calls to trigger JIT (for testing, default: 5)"),
@@ -936,6 +937,9 @@ setup_mjit_options(const char *s, struct mjit_options *mjit_opt)
     }
     else if (strncmp(s, "-min-calls=", 11) == 0) {
         mjit_opt->min_calls = atoi(s + 11);
+    }
+    else if (strcmp(s, "-cache-objs") == 0) {
+        mjit_opt->cache_objs = 1;
     }
     else {
         rb_raise(rb_eRuntimeError,

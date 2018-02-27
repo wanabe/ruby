@@ -47,6 +47,7 @@ struct mjit_options {
     /* Maximal permitted number of iseq JIT codes in a MJIT memory
        cache.  */
     int max_cache_size;
+    char cache_objs; /* flag of MJIT cache object files */
 };
 
 typedef VALUE (*mjit_func_t)(rb_execution_context_t *, rb_control_frame_t *);
@@ -59,7 +60,8 @@ extern void mjit_add_iseq_to_process(const rb_iseq_t *iseq);
 extern mjit_func_t mjit_get_iseq_func(const struct rb_iseq_constant_body *body);
 RUBY_SYMBOL_EXPORT_END
 
-extern int mjit_compile(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname);
+extern int mjit_compile(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname, const char create_o_cache);
+extern void mjit_compile_var(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname);
 extern void mjit_init(struct mjit_options *opts);
 extern void mjit_finish(void);
 extern void mjit_gc_start_hook(void);

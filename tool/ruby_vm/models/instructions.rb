@@ -17,6 +17,11 @@ require_relative 'instructions_unifications'
 RubyVM::Instructions = RubyVM::BareInstructions.to_a + \
                        RubyVM::OperandsUnifications.to_a + \
                        RubyVM::InstructionsUnifications.to_a
+RubyVM::MJIT::UnsupportedInstructions = [
+    'getblockparamproxy',  # TODO: support this
+    'defineclass',         # low priority
+    'opt_call_c_function', # low priority
+]
 
 require_relative 'trace_instructions'
 RubyVM::Instructions.freeze

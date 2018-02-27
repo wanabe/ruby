@@ -98,7 +98,7 @@ comment_id(FILE *f, ID id)
 }
 
 static void compile_insns(FILE *f, const struct rb_iseq_constant_body *body, unsigned int stack_size,
-                          unsigned int pos, struct compile_status *status);
+                          unsigned int pos, struct compile_status *status, const char create_o_cache);
 
 /* Main function of JIT compilation, vm_exec_core counterpart for JIT. Compile one insn to `f`, may modify
    b->stack_size and return next position.
@@ -108,7 +108,7 @@ static void compile_insns(FILE *f, const struct rb_iseq_constant_body *body, uns
    does not have it can be compiled as usual. */
 static unsigned int
 compile_insn(FILE *f, const struct rb_iseq_constant_body *body, const int insn, const VALUE *operands,
-             const unsigned int pos, struct compile_status *status, struct compile_branch *b)
+             const unsigned int pos, struct compile_status *status, struct compile_branch *b, const char create_o_cache)
 {
     unsigned int next_pos = pos + insn_len(insn);
 
@@ -123,7 +123,7 @@ compile_insn(FILE *f, const struct rb_iseq_constant_body *body, const int insn, 
    called multiple times for each branch.  */
 static void
 compile_insns(FILE *f, const struct rb_iseq_constant_body *body, unsigned int stack_size,
-              unsigned int pos, struct compile_status *status)
+              unsigned int pos, struct compile_status *status, const char create_o_cache)
 {
     int insn;
     struct compile_branch branch;
@@ -140,7 +140,7 @@ compile_insns(FILE *f, const struct rb_iseq_constant_body *body, unsigned int st
         status->compiled_for_pos[pos] = TRUE;
 
         fprintf(f, "\nlabel_%d: /* %s */\n", pos, insn_name(insn));
-        pos = compile_insn(f, body, insn, body->iseq_encoded + (pos+1), pos, status, &branch);
+        pos = compile_insn(f, body, insn, body->iseq_encoded + (pos+1), pos, status, &branch, create_o_cache);
         if (status->success && branch.stack_size > body->stack_max) {
             if (mjit_opts.warnings || mjit_opts.verbose)
                 fprintf(stderr, "MJIT warning: JIT stack exceeded its max\n");
@@ -153,19 +153,41 @@ compile_insns(FILE *f, const struct rb_iseq_constant_body *body, unsigned int st
 
 /* Compile ISeq to C code in F.  It returns 1 if it succeeds to compile. */
 int
-mjit_compile(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname)
+mjit_compile(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname, const char create_o_cache)
 {
     struct compile_status status;
     status.success = TRUE;
     status.compiled_for_pos = ZALLOC_N(int, body->iseq_size);
 
+    if (create_o_cache) {
+        unsigned int pos = 0;
+        int insn;
+        const VALUE *operands;
+
+        fprintf(f, "extern const VALUE *const original_body_iseq;\n");
+        for (pos = 0; pos < body->iseq_size; pos = pos + insn_len(insn)) {
+#if OPT_DIRECT_THREADED_CODE || OPT_CALL_THREADED_CODE
+            insn = rb_vm_insn_addr2insn((void *)body->iseq_encoded[pos]);
+#else
+            insn = (int)body->iseq_encoded[pos];
+#endif
+          operands = body->iseq_encoded + (pos+1);
+#define MJIT_EXTERN 1
+/*****************/
+ #include "mjit_var.inc"
+/*****************/
+#undef MJIT_EXTERN
+        }
+    }
 #ifdef _WIN32
     fprintf(f, "__declspec(dllexport)\n");
 #endif
     fprintf(f, "VALUE\n%s(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp)\n{\n", funcname);
     fprintf(f, "    VALUE *stack = reg_cfp->sp;\n");
-    fprintf(f, "    static const VALUE *const original_body_iseq = (VALUE *)0x%"PRIxVALUE";\n",
-            (VALUE)body->iseq_encoded);
+    if (!create_o_cache) {
+        fprintf(f, "    static const VALUE *const original_body_iseq = (VALUE *)0x%"PRIxVALUE";\n",
+                (VALUE)body->iseq_encoded);
+    }
 
     /* Simulate `opt_pc` in setup_parameters_complex */
     if (body->param.flags.has_opt) {
@@ -185,9 +207,33 @@ mjit_compile(FILE *f, const struct rb_iseq_constant_body *body, const char *func
     fprintf(f, "        return Qundef;\n");
     fprintf(f, "    }\n");
 
-    compile_insns(f, body, 0, 0, &status);
+    compile_insns(f, body, 0, 0, &status, create_o_cache);
     fprintf(f, "\n} /* end of %s */\n", funcname);
 
     xfree(status.compiled_for_pos);
     return status.success;
+}
+
+void
+mjit_compile_var(FILE *f, const struct rb_iseq_constant_body *body, const char *funcname)
+{
+    unsigned int pos = 0;
+    int insn;
+    const VALUE *operands;
+
+    fprintf(f, "VALUE *const original_body_iseq = (VALUE *)0x%"PRIxVALUE";\n",
+            (VALUE)body->iseq_encoded);
+    for (pos = 0; pos < body->iseq_size; pos = pos + insn_len(insn)) {
+#if OPT_DIRECT_THREADED_CODE || OPT_CALL_THREADED_CODE
+        insn = rb_vm_insn_addr2insn((void *)body->iseq_encoded[pos]);
+#else
+        insn = (int)body->iseq_encoded[pos];
+#endif
+      operands = body->iseq_encoded + (pos+1);
+#define MJIT_EXTERN 0
+/*****************/
+ #include "mjit_var.inc"
+/*****************/
+#undef MJIT_EXTERN
+    }
 }
