@@ -11,6 +11,8 @@
 
 #include "ruby.h"
 
+#define MJIT_BATCH_SIZE 40
+
 /* Special address values of a function generated from the
    corresponding iseq by MJIT: */
 enum rb_mjit_iseq_func {
