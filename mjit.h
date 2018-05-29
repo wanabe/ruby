@@ -11,7 +11,7 @@
 
 #include "ruby.h"
 
-#define MJIT_BATCH_SIZE 40
+#define MJIT_BATCH_SIZE 500
 
 /* Special address values of a function generated from the
    corresponding iseq by MJIT: */

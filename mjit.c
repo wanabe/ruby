@@ -83,6 +83,9 @@
 #include "ruby/util.h"
 #include "ruby/version.h"
 
+#include "insns.inc"
+#include "insns_info.inc"
+
 #ifdef _WIN32
 #include <winsock2.h>
 #include <windows.h>
@@ -796,6 +799,26 @@ remove_file(const char *filename)
     }
 }
 
+static int
+has_unsupported_insn(const struct rb_iseq_constant_body *body)
+{
+    int insn;
+    unsigned int pos = 0;
+
+    while (pos < body->iseq_size) {
+#if OPT_DIRECT_THREADED_CODE || OPT_CALL_THREADED_CODE
+        insn = rb_vm_insn_addr2insn((void *)body->iseq_encoded[pos]);
+#else
+        insn = (int)body->iseq_encoded[pos];
+#endif
+        if (insn == BIN(getblockparamproxy) || insn == BIN(defineclass) || insn == BIN(opt_call_c_function)) {
+            return TRUE;
+        }
+        pos = pos + insn_len(insn);
+    }
+    return FALSE;
+}
+
 /* Compile ISeq in UNIT and return function pointer of JIT-ed code.
    It may return NOT_COMPILABLE_JIT_ISEQ_FUNC if something went wrong. */
 static mjit_func_t
@@ -879,6 +902,8 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
         char fname[35];
         sprintf(fname, "_mjit%d", node->unit->id);
 
+        if (has_unsupported_insn(node->unit->iseq->body)) continue;
+
         {
             VALUE s = rb_iseq_path(node->unit->iseq);
             const char *label = RSTRING_PTR(node->unit->iseq->body->location.label);
@@ -917,6 +942,7 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
         sprintf(fname, "_mjit%d", node->unit->id);
 
         if (node->unit->iseq == NULL) continue;
+        if (has_unsupported_insn(node->unit->iseq->body)) continue;
 
         func = load_func_from_so(so_file, fname, node->unit);
 
