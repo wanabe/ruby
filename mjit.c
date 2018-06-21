@@ -801,8 +801,9 @@ remove_file(const char *filename)
 static mjit_func_t
 convert_unit_to_func(struct rb_mjit_unit *unit)
 {
+    struct rb_mjit_unit_node *node;
     char c_file_buff[70], *c_file = c_file_buff, *so_file, funcname[35];
-    int success;
+    int success = TRUE;
     int fd;
     FILE *f;
     void *func;
@@ -874,15 +875,20 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
     in_jit = TRUE;
     CRITICAL_SECTION_FINISH(3, "before mjit_compile to wait GC finish");
 
-    {
-        VALUE s = rb_iseq_path(unit->iseq);
-        const char *label = RSTRING_PTR(unit->iseq->body->location.label);
-        const char *path = RSTRING_PTR(s);
-        int lineno = FIX2INT(unit->iseq->body->location.first_lineno);
-        verbose(2, "start compile: %s@%s:%d -> %s", label, path, lineno, c_file);
-        fprintf(f, "/* %s@%s:%d */\n\n", label, path, lineno);
+    for (node = unit_queue.head; node != NULL; node = node->next) {
+        char fname[35];
+        sprintf(fname, "_mjit%d", node->unit->id);
+
+        {
+            VALUE s = rb_iseq_path(node->unit->iseq);
+            const char *label = RSTRING_PTR(node->unit->iseq->body->location.label);
+            const char *path = RSTRING_PTR(s);
+            int lineno = FIX2INT(node->unit->iseq->body->location.first_lineno);
+            verbose(2, "start compile: %s@%s:%d -> %s", label, path, lineno, c_file);
+            fprintf(f, "/* %s@%s:%d */\n\n", label, path, lineno);
+        }
+        success &= mjit_compile(f, node->unit->iseq->body, fname);
     }
-    success = mjit_compile(f, unit->iseq->body, funcname);
 
     /* release blocking mjit_gc_start_hook */
     CRITICAL_SECTION_START(3, "after mjit_compile to wakeup client for GC");
@@ -893,8 +899,6 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
 
     fclose(f);
     if (!success) {
-        if (!mjit_opts.save_temps)
-            remove_file(c_file);
         print_jit_result("failure", unit, 0, c_file);
         return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
     }
@@ -903,31 +907,38 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
     success = compile_c_to_so(c_file, so_file);
     end_time = real_ms_time();
 
-    if (!mjit_opts.save_temps)
-        remove_file(c_file);
     if (!success) {
         verbose(2, "Failed to generate so: %s", so_file);
         return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
     }
 
-    func = load_func_from_so(so_file, funcname, unit);
-    if (!mjit_opts.save_temps) {
-#ifdef _WIN32
-        unit->so_file = strdup(so_file);
-#else
-        remove_file(so_file);
-#endif
+    for (node = unit_queue.head; node != NULL; node = node->next) {
+        char fname[35];
+        sprintf(fname, "_mjit%d", node->unit->id);
+
+        if (node->unit->iseq == NULL) continue;
+
+        func = load_func_from_so(so_file, fname, node->unit);
+
+        if ((ptrdiff_t)func > (ptrdiff_t)LAST_JIT_ISEQ_FUNC) {
+            struct rb_mjit_unit_node *n = create_list_node(node->unit);
+            CRITICAL_SECTION_START(3, "end of jit");
+            add_to_list(n, &active_units);
+            if (unit->iseq)
+                print_jit_result("success", node->unit, end_time - start_time, c_file);
+            CRITICAL_SECTION_FINISH(3, "end of jit");
+        }
+
+        CRITICAL_SECTION_START(3, "in jit func replace");
+        if (node->unit->iseq) { /* Check whether GCed or not */
+            /* Usage of jit_code might be not in a critical section.  */
+            MJIT_ATOMIC_SET(node->unit->iseq->body->jit_func, func);
+        }
+        remove_from_list(node, &unit_queue);
+        CRITICAL_SECTION_FINISH(3, "in jit func replace");
     }
 
-    if ((ptrdiff_t)func > (ptrdiff_t)LAST_JIT_ISEQ_FUNC) {
-        struct rb_mjit_unit_node *node = create_list_node(unit);
-        CRITICAL_SECTION_START(3, "end of jit");
-        add_to_list(node, &active_units);
-        if (unit->iseq)
-            print_jit_result("success", unit, end_time - start_time, c_file);
-        CRITICAL_SECTION_FINISH(3, "end of jit");
-    }
-    return (mjit_func_t)func;
+    return (mjit_func_t)NULL;
 }
 
 /* Set to TRUE to stop worker.  */
@@ -960,7 +971,7 @@ worker(void)
 
         /* wait until unit is available */
         CRITICAL_SECTION_START(3, "in worker dequeue");
-        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size) && !stop_worker_p) {
+        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size || unit_queue.length != MJIT_BATCH_SIZE) && !stop_worker_p) {
             rb_native_cond_wait(&mjit_worker_wakeup, &mjit_engine_mutex);
             verbose(3, "Getting wakeup from client");
         }
@@ -968,15 +979,7 @@ worker(void)
         CRITICAL_SECTION_FINISH(3, "in worker dequeue");
 
         if (node) {
-            mjit_func_t func = convert_unit_to_func(node->unit);
-
-            CRITICAL_SECTION_START(3, "in jit func replace");
-            if (node->unit->iseq) { /* Check whether GCed or not */
-                /* Usage of jit_code might be not in a critical section.  */
-                MJIT_ATOMIC_SET(node->unit->iseq->body->jit_func, func);
-            }
-            remove_from_list(node, &unit_queue);
-            CRITICAL_SECTION_FINISH(3, "in jit func replace");
+            convert_unit_to_func(node->unit);
         }
     }
 
