@@ -172,8 +172,11 @@ struct rb_mjit_unit_list {
     int length; /* the list length */
 };
 
-/* TRUE if MJIT is initialized and will be used.  */
-int mjit_init_p = FALSE;
+/* TRUE if MJIT is enabled.  */
+int mjit_enabled = FALSE;
+/* TRUE if JIT-ed code should be called. When `ruby_vm_event_enabled_flags & ISEQ_TRACE_EVENTS`
+   and `mjit_call_p == FALSE`, any JIT-ed code execution is cancelled as soon as possible. */
+int mjit_call_p = FALSE;
 
 /* Priority queue of iseqs waiting for JIT compilation.
    This variable is a pointer to head unit of the queue. */
@@ -425,7 +428,7 @@ CRITICAL_SECTION_FINISH(int level, const char *msg)
 void
 mjit_gc_start_hook(void)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
     CRITICAL_SECTION_START(4, "mjit_gc_start_hook");
     while (in_jit) {
@@ -442,7 +445,7 @@ mjit_gc_start_hook(void)
 void
 mjit_gc_finish_hook(void)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
     CRITICAL_SECTION_START(4, "mjit_gc_finish_hook");
     in_gc = FALSE;
@@ -456,7 +459,7 @@ mjit_gc_finish_hook(void)
 void
 mjit_free_iseq(const rb_iseq_t *iseq)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
     CRITICAL_SECTION_START(4, "mjit_free_iseq");
     if (iseq->body->jit_unit) {
@@ -613,7 +616,7 @@ static const char *const CC_DLDFLAGS_ARGS[] = {
     MJIT_DLDFLAGS
 #if defined __GNUC__ && !defined __clang__
     "-nostartfiles",
-# ifndef _WIN32
+# if !defined(_WIN32) && !defined(__CYGWIN__)
     "-nodefaultlibs", "-nostdlib",
 # endif
 #endif
@@ -621,10 +624,12 @@ static const char *const CC_DLDFLAGS_ARGS[] = {
 };
 
 static const char *const CC_LIBS[] = {
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__CYGWIN__)
     MJIT_LIBS
 # if defined __GNUC__ && !defined __clang__
+#  if defined(_WIN32)
     "-lmsvcrt",
+#  endif
     "-lgcc",
 # endif
 #endif
@@ -982,7 +987,7 @@ worker(void)
         make_pch();
     }
     if (pch_status == PCH_FAILED) {
-        mjit_init_p = FALSE;
+        mjit_enabled = FALSE;
         CRITICAL_SECTION_START(3, "in worker to update worker_stopped");
         worker_stopped = TRUE;
         verbose(3, "Sending wakeup signal to client in a mjit-worker");
@@ -1189,7 +1194,7 @@ mjit_add_iseq_to_process(const rb_iseq_t *iseq)
 {
     struct rb_mjit_unit_node *node;
 
-    if (!mjit_init_p || pch_status == PCH_FAILED)
+    if (!mjit_enabled || pch_status == PCH_FAILED)
         return;
 
     iseq->body->jit_func = (mjit_func_t)NOT_READY_JIT_ISEQ_FUNC;
@@ -1301,7 +1306,7 @@ static void
 child_after_fork(void)
 {
     verbose(3, "Switching off MJIT in a forked child");
-    mjit_init_p = FALSE;
+    mjit_enabled = FALSE;
     /* TODO: Should we initiate MJIT in the forked Ruby.  */
 }
 
@@ -1415,7 +1420,7 @@ start_worker(void)
     worker_stopped = FALSE;
 
     if (!rb_thread_create_mjit_thread(child_after_fork, worker)) {
-        mjit_init_p = FALSE;
+        mjit_enabled = FALSE;
         rb_native_mutex_destroy(&mjit_engine_mutex);
         rb_native_cond_destroy(&mjit_pch_wakeup);
         rb_native_cond_destroy(&mjit_client_wakeup);
@@ -1436,7 +1441,8 @@ mjit_init(struct mjit_options *opts)
     VALUE rb_description;
 
     mjit_opts = *opts;
-    mjit_init_p = TRUE;
+    mjit_enabled = TRUE;
+    mjit_call_p = TRUE;
 
     /* Normalize options */
     if (mjit_opts.min_calls == 0)
@@ -1458,7 +1464,7 @@ mjit_init(struct mjit_options *opts)
     init_header_filename();
     pch_file = get_uniq_filename(0, MJIT_TMP_PREFIX "h", ".h.gch");
     if (header_file == NULL || pch_file == NULL) {
-        mjit_init_p = FALSE;
+        mjit_enabled = FALSE;
         verbose(1, "Failure in MJIT header file name initialization\n");
         return;
     }
@@ -1508,7 +1514,7 @@ stop_worker(void)
 VALUE
 mjit_pause(void)
 {
-    if (!mjit_init_p) {
+    if (!mjit_enabled) {
         rb_raise(rb_eRuntimeError, "MJIT is not enabled");
     }
     if (worker_stopped) {
@@ -1523,7 +1529,7 @@ mjit_pause(void)
 VALUE
 mjit_resume(void)
 {
-    if (!mjit_init_p) {
+    if (!mjit_enabled) {
         rb_raise(rb_eRuntimeError, "MJIT is not enabled");
     }
     if (!worker_stopped) {
@@ -1542,7 +1548,7 @@ mjit_resume(void)
 void
 mjit_finish(void)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
 
     /* Wait for pch finish */
@@ -1576,11 +1582,12 @@ mjit_finish(void)
     xfree(pch_file); pch_file = NULL;
     xfree(header_file); header_file = NULL;
 
+    mjit_call_p = FALSE;
     free_list(&unit_queue);
     free_list(&active_units);
     finish_conts();
 
-    mjit_init_p = FALSE;
+    mjit_enabled = FALSE;
     verbose(1, "Successful MJIT finish");
 }
 
@@ -1588,7 +1595,7 @@ void
 mjit_mark(void)
 {
     struct rb_mjit_unit_node *node;
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
     RUBY_MARK_ENTER("mjit");
     CRITICAL_SECTION_START(4, "mjit_mark");
@@ -1612,7 +1619,7 @@ mjit_mark(void)
 void
 mjit_add_class_serial(rb_serial_t class_serial)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
 
     /* Do not wrap CRITICAL_SECTION here. This function is only called in main thread
@@ -1624,7 +1631,7 @@ mjit_add_class_serial(rb_serial_t class_serial)
 void
 mjit_remove_class_serial(rb_serial_t class_serial)
 {
-    if (!mjit_init_p)
+    if (!mjit_enabled)
         return;
 
     CRITICAL_SECTION_START(3, "in mjit_remove_class_serial");

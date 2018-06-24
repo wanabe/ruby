@@ -93,14 +93,16 @@ class TestRange < Test::Unit::TestCase
     assert_equal([0,1,2], (0..10).min(3))
     assert_equal([0,1], (0..1).min(3))
     assert_equal([0,1,2], (0..).min(3))
+
+    assert_raise(RangeError) { (0..).min {|a, b| a <=> b } }
   end
 
   def test_max
     assert_equal(2, (1..2).max)
     assert_equal(nil, (2..1).max)
     assert_equal(1, (1...2).max)
-    assert_equal(nil, (1..).max)
-    assert_equal(nil, (1...).max)
+    assert_raise(RangeError) { (1..).max }
+    assert_raise(RangeError) { (1...).max }
 
     assert_equal(2.0, (1.0..2.0).max)
     assert_equal(nil, (2.0..1.0).max)
@@ -115,7 +117,8 @@ class TestRange < Test::Unit::TestCase
 
     assert_equal([10,9,8], (0..10).max(3))
     assert_equal([9,8,7], (0...10).max(3))
-    # XXX: How should (0...).max(3) behave?
+    assert_raise(RangeError) { (1..).max(3) }
+    assert_raise(RangeError) { (1...).max(3) }
   end
 
   def test_initialize_twice
@@ -405,7 +408,8 @@ class TestRange < Test::Unit::TestCase
     assert_equal([0, 1, 2], (0..nil).first(3))
     assert_equal(0, (0..nil).first)
     assert_equal("a", ("a"..nil).first)
-    # XXX: How should (0...).last(3) behave?
+    assert_raise(RangeError) { (0..nil).last }
+    assert_raise(RangeError) { (0..nil).last(3) }
   end
 
   def test_to_s
@@ -582,8 +586,8 @@ class TestRange < Test::Unit::TestCase
     assert_equal 42, (1..42).each.size
     assert_nil ("a"..."z").size
 
-    assert_nil (1...).size
-    assert_nil (1.0...).size
+    assert_equal Float::INFINITY, (1...).size
+    assert_equal Float::INFINITY, (1.0...).size
     assert_nil ("a"...).size
   end
 
@@ -793,5 +797,11 @@ class TestRange < Test::Unit::TestCase
       super {|y| b.call(y) {|z| assert(false)}}
     end
     (a.."c").each {|x, &b| assert_nil(b)}
+  end
+
+  def test_to_a
+    assert_equal([1,2,3,4,5], (1..5).to_a)
+    assert_equal([1,2,3,4], (1...5).to_a)
+    assert_raise(RangeError) { (1..).to_a }
   end
 end

@@ -1789,7 +1789,7 @@ hook_before_rewind(rb_execution_context_t *ec, const rb_control_frame_t *cfp, in
  */
 
 static inline VALUE
-vm_exce_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
+vm_exec_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
                          VALUE errinfo, VALUE *initial);
 
 MJIT_FUNC_EXPORTED VALUE
@@ -1811,7 +1811,7 @@ vm_exec(rb_execution_context_t *ec, int mjit_enable_p)
     else {
 	result = ec->errinfo;
         rb_ec_raised_reset(ec, RAISED_STACKOVERFLOW);
-        while ((result = vm_exce_handle_exception(ec, state, result, &initial)) == Qundef) {
+        while ((result = vm_exec_handle_exception(ec, state, result, &initial)) == Qundef) {
             /* caught a jump, exec the handler */
             result = vm_exec_core(ec, initial);
 	  vm_loop_start:
@@ -1826,7 +1826,7 @@ vm_exec(rb_execution_context_t *ec, int mjit_enable_p)
 }
 
 static inline VALUE
-vm_exce_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
+vm_exec_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
                          VALUE errinfo, VALUE *initial)
 {
     struct vm_throw_data *err = (struct vm_throw_data *)errinfo;
@@ -1846,10 +1846,10 @@ vm_exce_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
 
 	while (ec->cfp->pc == 0 || ec->cfp->iseq == 0) {
 	    if (UNLIKELY(VM_FRAME_TYPE(ec->cfp) == VM_FRAME_MAGIC_CFUNC)) {
-		EXEC_EVENT_HOOK(ec, RUBY_EVENT_C_RETURN, ec->cfp->self,
-				rb_vm_frame_method_entry(ec->cfp)->def->original_id,
-				rb_vm_frame_method_entry(ec->cfp)->called_id,
-				rb_vm_frame_method_entry(ec->cfp)->owner, Qnil);
+		EXEC_EVENT_HOOK_AND_POP_FRAME(ec, RUBY_EVENT_C_RETURN, ec->cfp->self,
+					      rb_vm_frame_method_entry(ec->cfp)->def->original_id,
+					      rb_vm_frame_method_entry(ec->cfp)->called_id,
+					      rb_vm_frame_method_entry(ec->cfp)->owner, Qnil);
 		RUBY_DTRACE_CMETHOD_RETURN_HOOK(ec,
 						rb_vm_frame_method_entry(ec->cfp)->owner,
 						rb_vm_frame_method_entry(ec->cfp)->def->original_id);
@@ -2777,7 +2777,7 @@ core_hash_merge_kwd(int argc, VALUE *argv)
 static VALUE
 mjit_enabled_p(void)
 {
-    return mjit_init_p ? Qtrue : Qfalse;
+    return mjit_enabled ? Qtrue : Qfalse;
 }
 
 extern VALUE mjit_pause(void);

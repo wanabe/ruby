@@ -749,10 +749,36 @@ static VALUE
 range_size(VALUE range)
 {
     VALUE b = RANGE_BEG(range), e = RANGE_END(range);
-    if (rb_obj_is_kind_of(b, rb_cNumeric) && rb_obj_is_kind_of(e, rb_cNumeric)) {
-	return ruby_num_interval_step_size(b, e, INT2FIX(1), EXCL(range));
+    if (rb_obj_is_kind_of(b, rb_cNumeric)) {
+        if (rb_obj_is_kind_of(e, rb_cNumeric)) {
+	    return ruby_num_interval_step_size(b, e, INT2FIX(1), EXCL(range));
+        }
+        if (NIL_P(e)) {
+            return DBL2NUM(HUGE_VAL);
+        }
     }
+
     return Qnil;
+}
+
+/*
+ *  call-seq:
+ *     rng.to_a                   -> array
+ *     rng.entries                -> array
+ *
+ *  Returns an array containing the items in <i>rng</i>.
+ *
+ *    (1..7).to_a  #=> [1, 2, 3, 4, 5, 6, 7]
+ *    (1..).to_a   #=> RangeError: cannot convert endless range to an array
+ */
+
+static VALUE
+range_to_a(VALUE range)
+{
+    if (NIL_P(RANGE_END(range))) {
+	rb_raise(rb_eRangeError, "cannot convert endless range to an array");
+    }
+    return rb_call_super(0, 0);
 }
 
 static VALUE
@@ -987,6 +1013,9 @@ range_first(int argc, VALUE *argv, VALUE range)
 static VALUE
 range_last(int argc, VALUE *argv, VALUE range)
 {
+    if (NIL_P(RANGE_END(range))) {
+        rb_raise(rb_eRangeError, "cannot get the last element of endless range");
+    }
     if (argc == 0) return RANGE_END(range);
     return rb_ary_last(argc, argv, rb_Array(range));
 }
@@ -1014,6 +1043,9 @@ static VALUE
 range_min(int argc, VALUE *argv, VALUE range)
 {
     if (rb_block_given_p()) {
+        if (NIL_P(RANGE_END(range))) {
+            rb_raise(rb_eRangeError, "cannot get the minimum of endless range with custom comparison method");
+        }
 	return rb_call_super(argc, argv);
     }
     else if (argc != 0) {
@@ -1054,7 +1086,9 @@ range_max(int argc, VALUE *argv, VALUE range)
     VALUE e = RANGE_END(range);
     int nm = FIXNUM_P(e) || rb_obj_is_kind_of(e, rb_cNumeric);
 
-    if (NIL_P(e)) return Qnil;
+    if (NIL_P(RANGE_END(range))) {
+	rb_raise(rb_eRangeError, "cannot get the maximum of endless range");
+    }
 
     if (rb_block_given_p() || (EXCL(range) && !nm) || argc) {
         return rb_call_super(argc, argv);
@@ -1459,6 +1493,8 @@ Init_Range(void)
     rb_define_method(rb_cRange, "min", range_min, -1);
     rb_define_method(rb_cRange, "max", range_max, -1);
     rb_define_method(rb_cRange, "size", range_size, 0);
+    rb_define_method(rb_cRange, "to_a", range_to_a, 0);
+    rb_define_method(rb_cRange, "entries", range_to_a, 0);
     rb_define_method(rb_cRange, "to_s", range_to_s, 0);
     rb_define_method(rb_cRange, "inspect", range_inspect, 0);
 
