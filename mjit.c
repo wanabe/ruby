@@ -827,7 +827,7 @@ has_unsupported_insn(const struct rb_iseq_constant_body *body)
 /* Compile ISeq in UNIT and return function pointer of JIT-ed code.
    It may return NOT_COMPILABLE_JIT_ISEQ_FUNC if something went wrong. */
 static mjit_func_t
-convert_unit_to_func(struct rb_mjit_unit *unit)
+convert_unit_node_to_func(struct rb_mjit_unit_node *unit_node)
 {
     struct rb_mjit_unit_node *node;
     char c_file_buff[70], *c_file = c_file_buff, *so_file, funcname[35];
@@ -844,18 +844,19 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
         O_BINARY|
 #endif
         O_WRONLY|O_EXCL|O_CREAT;
+    int i;
 
-    c_file_len = sprint_uniq_filename(c_file_buff, c_file_len, unit->id, MJIT_TMP_PREFIX, c_ext);
+    c_file_len = sprint_uniq_filename(c_file_buff, c_file_len, unit_node->unit->id, MJIT_TMP_PREFIX, c_ext);
     if (c_file_len >= (int)sizeof(c_file_buff)) {
         ++c_file_len;
         c_file = alloca(c_file_len);
-        c_file_len = sprint_uniq_filename(c_file, c_file_len, unit->id, MJIT_TMP_PREFIX, c_ext);
+        c_file_len = sprint_uniq_filename(c_file, c_file_len, unit_node->unit->id, MJIT_TMP_PREFIX, c_ext);
     }
     ++c_file_len;
     so_file = alloca(c_file_len - sizeof(c_ext) + sizeof(so_ext));
     memcpy(so_file, c_file, c_file_len - sizeof(c_ext));
     memcpy(&so_file[c_file_len - sizeof(c_ext)], so_ext, sizeof(so_ext));
-    sprintf(funcname, "_mjit%d", unit->id);
+    sprintf(funcname, "_mjit%d", unit_node->unit->id);
 
     fd = rb_cloexec_open(c_file, access_mode, 0600);
     if (fd < 0 || (f = fdopen(fd, "w")) == NULL) {
@@ -903,7 +904,7 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
     in_jit = TRUE;
     CRITICAL_SECTION_FINISH(3, "before mjit_compile to wait GC finish");
 
-    for (node = unit_queue.head; node != NULL; node = node->next) {
+    for (i = 0, node = unit_node; i < mjit_opts.batch_size && node != NULL; i++, node = node->next) {
         char fname[35];
         sprintf(fname, "_mjit%d", node->unit->id);
 
@@ -929,7 +930,7 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
 
     fclose(f);
     if (!success) {
-        print_jit_result("failure", unit, 0, c_file);
+        print_jit_result("failure", unit_node->unit, 0, c_file);
         return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
     }
 
@@ -942,12 +943,15 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
         return (mjit_func_t)NOT_COMPILABLE_JIT_ISEQ_FUNC;
     }
 
-    for (node = unit_queue.head; node != NULL; node = node->next) {
+    for (i = 0, node = unit_node; i < mjit_opts.batch_size && node != NULL; i++, node = node->next) {
         char fname[35];
         sprintf(fname, "_mjit%d", node->unit->id);
 
         if (node->unit->iseq == NULL) continue;
-        if (has_unsupported_insn(node->unit->iseq->body)) continue;
+        if (has_unsupported_insn(node->unit->iseq->body)) {
+            remove_from_list(node, &unit_queue);
+            continue;
+        }
 
         func = load_func_from_so(so_file, fname, node->unit);
 
@@ -955,7 +959,7 @@ convert_unit_to_func(struct rb_mjit_unit *unit)
             struct rb_mjit_unit_node *n = create_list_node(node->unit);
             CRITICAL_SECTION_START(3, "end of jit");
             add_to_list(n, &active_units);
-            if (unit->iseq)
+            if (node->unit->iseq)
                 print_jit_result("success", node->unit, end_time - start_time, c_file);
             CRITICAL_SECTION_FINISH(3, "end of jit");
         }
@@ -1002,7 +1006,7 @@ worker(void)
 
         /* wait until unit is available */
         CRITICAL_SECTION_START(3, "in worker dequeue");
-        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size || unit_queue.length != mjit_opts.batch_size) && !stop_worker_p) {
+        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size || unit_queue.length < mjit_opts.batch_size) && !stop_worker_p) {
             rb_native_cond_wait(&mjit_worker_wakeup, &mjit_engine_mutex);
             verbose(3, "Getting wakeup from client");
         }
@@ -1010,7 +1014,7 @@ worker(void)
         CRITICAL_SECTION_FINISH(3, "in worker dequeue");
 
         if (node) {
-            convert_unit_to_func(node->unit);
+            convert_unit_node_to_func(node);
         }
     }
 
