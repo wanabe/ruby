@@ -11,7 +11,7 @@
 
 #include "ruby.h"
 
-#define MJIT_BATCH_SIZE 500
+#define MJIT_DEFAULT_BATCH_SIZE 500
 
 /* Special address values of a function generated from the
    corresponding iseq by MJIT: */
@@ -49,6 +49,8 @@ struct mjit_options {
     /* Maximal permitted number of iseq JIT codes in a MJIT memory
        cache.  */
     int max_cache_size;
+    /* TODO: write comment */
+    int batch_size;
 };
 
 typedef VALUE (*mjit_func_t)(rb_execution_context_t *, rb_control_frame_t *);

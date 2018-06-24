@@ -1002,7 +1002,7 @@ worker(void)
 
         /* wait until unit is available */
         CRITICAL_SECTION_START(3, "in worker dequeue");
-        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size || unit_queue.length != MJIT_BATCH_SIZE) && !stop_worker_p) {
+        while ((unit_queue.head == NULL || active_units.length > mjit_opts.max_cache_size || unit_queue.length != mjit_opts.batch_size) && !stop_worker_p) {
             rb_native_cond_wait(&mjit_worker_wakeup, &mjit_engine_mutex);
             verbose(3, "Getting wakeup from client");
         }
@@ -1451,6 +1451,8 @@ mjit_init(struct mjit_options *opts)
         mjit_opts.max_cache_size = DEFAULT_CACHE_SIZE;
     if (mjit_opts.max_cache_size < MIN_CACHE_SIZE)
         mjit_opts.max_cache_size = MIN_CACHE_SIZE;
+    if (mjit_opts.batch_size <= 0)
+        mjit_opts.batch_size = MJIT_DEFAULT_BATCH_SIZE;
 
     verbose(2, "MJIT: CC defaults to %s", CC_PATH);
 

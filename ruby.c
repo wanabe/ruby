@@ -278,6 +278,7 @@ usage(const char *name, int help)
         M("--jit-verbose=num",   "", "Print MJIT logs of level num or less to stderr (default: 0)"),
         M("--jit-max-cache=num", "", "Max number of methods to be JIT-ed in a cache (default: 1000)"),
         M("--jit-min-calls=num", "", "Number of calls to trigger JIT (for testing, default: 5)"),
+        M("--jit-batch-size=num", "", "Number of functions in same so (for testing, default: 500)"),
     };
     int i;
     const int num = numberof(usage_msg) - (help ? 1 : 0);
@@ -964,6 +965,9 @@ setup_mjit_options(const char *s, struct mjit_options *mjit_opt)
     }
     else if (strncmp(s, "-min-calls=", 11) == 0) {
         mjit_opt->min_calls = atoi(s + 11);
+    }
+    else if (strncmp(s, "-batch-size=", 12) == 0) {
+        mjit_opt->batch_size = atoi(s + 12);
     }
     else {
         rb_raise(rb_eRuntimeError,
