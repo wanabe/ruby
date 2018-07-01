@@ -1001,7 +1001,7 @@ invoke_block(rb_execution_context_t *ec, const rb_iseq_t *iseq, VALUE self, cons
 		  ec->cfp->sp + arg_size,
 		  iseq->body->local_table_size - arg_size,
 		  iseq->body->stack_max);
-    return vm_exec(ec, TRUE);
+    return vm_exec(ec, iseq);
 }
 
 static VALUE
@@ -1022,7 +1022,7 @@ invoke_bmethod(rb_execution_context_t *ec, const rb_iseq_t *iseq, VALUE self, co
     RUBY_DTRACE_METHOD_ENTRY_HOOK(ec, me->owner, me->def->original_id);
     EXEC_EVENT_HOOK(ec, RUBY_EVENT_CALL, self, me->def->original_id, me->called_id, me->owner, Qnil);
     VM_ENV_FLAGS_SET(ec->cfp->ep, VM_FRAME_FLAG_FINISH);
-    ret = vm_exec(ec, TRUE);
+    ret = vm_exec(ec, iseq);
     EXEC_EVENT_HOOK(ec, RUBY_EVENT_RETURN, self, me->def->original_id, me->called_id, me->owner, ret);
     RUBY_DTRACE_METHOD_RETURN_HOOK(ec, me->owner, me->def->original_id);
     return ret;
@@ -1793,7 +1793,7 @@ vm_exce_handle_exception(rb_execution_context_t *ec, enum ruby_tag_type state,
                          VALUE errinfo, VALUE *initial);
 
 MJIT_FUNC_EXPORTED VALUE
-vm_exec(rb_execution_context_t *ec, int mjit_enable_p)
+vm_exec(rb_execution_context_t *ec, const rb_iseq_t *iseq)
 {
     enum ruby_tag_type state;
     VALUE result = Qundef;
@@ -1803,7 +1803,7 @@ vm_exec(rb_execution_context_t *ec, int mjit_enable_p)
 
     _tag.retval = Qnil;
     if ((state = EC_EXEC_TAG()) == TAG_NONE) {
-        if (!mjit_enable_p || (result = mjit_exec(ec)) == Qundef) {
+        if (!iseq || (result = mjit_exec(ec, iseq, iseq->body)) == Qundef) {
             result = vm_exec_core(ec, initial);
         }
         goto vm_loop_start; /* fallback to the VM */
@@ -2052,7 +2052,7 @@ rb_iseq_eval(const rb_iseq_t *iseq)
     rb_execution_context_t *ec = GET_EC();
     VALUE val;
     vm_set_top_stack(ec, iseq);
-    val = vm_exec(ec, TRUE);
+    val = vm_exec(ec, iseq);
     return val;
 }
 
@@ -2063,7 +2063,7 @@ rb_iseq_eval_main(const rb_iseq_t *iseq)
     VALUE val;
 
     vm_set_main_stack(ec, iseq);
-    val = vm_exec(ec, TRUE);
+    val = vm_exec(ec, iseq);
     return val;
 }
 
