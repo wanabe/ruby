@@ -24,6 +24,15 @@
 % insn.declarations.each do |decl|
         fprintf(f, "    <%= decl %>;\n");
 % end
+%
+% # JIT: Declare stack_size to be used in some macro of _mjit_compile_insn_body.erb
+        if (status->local_stack_p) {
+% if insn.name == 'send' || insn.name == 'invokesuper'
+            fprintf(f, "    MAYBE_UNUSED(unsigned int) stack_size = %u;\n", b->stack_size - <%= insn.pops.size %> - ((ci->flag & VM_CALL_ARGS_BLOCKARG) ? 1 : 0));
+% else
+            fprintf(f, "    MAYBE_UNUSED(unsigned int) stack_size = %u;\n", b->stack_size - <%= insn.pops.size %>);
+% end
+        }
 
 % # JIT: Set const expressions for `RubyVM::OperandsUnifications` insn
 % insn.preamble.each do |amble|
@@ -73,7 +82,9 @@
 % end
 %
 % # compiler: Move JIT compiler's internal stack pointer
+        fprintf(f, " /* sp: %d -> ", b->stack_size);
         b->stack_size += <%= insn.call_attribute('sp_inc') %>;
+        fprintf(f, "%d */\n", b->stack_size);
     }
     fprintf(f, "}\n");
 %
