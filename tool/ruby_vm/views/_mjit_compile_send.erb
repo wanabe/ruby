@@ -26,7 +26,7 @@
             fprintf(f, "{\n");
 % # JIT: Declare stack_size to be used in some macro of _mjit_compile_insn_body.erb
             if (status->local_stack_p) {
-                fprintf(f, "    MAYBE_UNUSED(unsigned int) stack_size = %u;\n", b->stack_size);
+                fprintf(f, "    MAYBE_UNUSED(unsigned int) stack_size = %u;\n", b->stack_size - <%= insn.pops.size %> - ((ci->flag & VM_CALL_ARGS_BLOCKARG) ? 1 : 0));
             }
 
 % # JIT: Invalidate call cache if it requires vm_search_method. This allows to inline some of following things.
