@@ -294,6 +294,15 @@ $(PREP): $(MKFILES)
 
 miniruby$(EXEEXT): config.status $(ALLOBJS) $(ARCHFILE)
 
+peg-%.o: $(srcdir)/vendor/peg/src/%.c
+	$(CC) $(CFLAGS) $(CPPFLAGS) -c -o $@ $^
+
+peg$(EXEEXT): peg-compile.o peg-tree.o peg-peg.o
+	$(CC) $(OUTFLAG)$@ $(LDFLAGS) $^
+
+leg$(EXEEXT): peg-compile.o peg-tree.o peg-leg.o
+	$(CC) $(OUTFLAG)$@ $(LDFLAGS) $^
+
 objs: $(ALLOBJS)
 
 GORUBY = go$(RUBY_INSTALL_NAME)
@@ -816,7 +825,7 @@ $(ENC_MK): $(srcdir)/enc/make_encmake.rb $(srcdir)/enc/Makefile.in $(srcdir)/enc
 
 PHONY:
 
-{$(VPATH)}parse.c: {$(VPATH)}parse.y $(srcdir)/tool/ytab.sed {$(VPATH)}id.h
+{$(VPATH)}parse.c: {$(VPATH)}parse.y $(srcdir)/tool/ytab.sed {$(VPATH)}id.h peg$(EXEEXT) leg$(EXEEXT)
 {$(VPATH)}parse.h: {$(VPATH)}parse.c
 
 {$(srcdir)}.y.c:
