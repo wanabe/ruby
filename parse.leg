@@ -1,0 +1,155 @@
+%{
+/* parse.leg */
+
+#include "ruby/ruby.h"
+#include "internal.h"
+#include "node.h"
+
+struct parser_params {
+    rb_ast_t *ast;
+};
+
+%}
+
+program = top_compstmt {}
+top_compstmt = top_stmts {}
+top_stmts = top_stmt {}
+top_stmt = stmt {}
+stmt = expr {}
+expr = arg {}
+arg = primary {}
+primary = literal {}
+literal = numeric {}
+numeric = simple_numeric {}
+simple_numeric = tINTEGER {}
+
+tINTEGER	= < [0-9][1-9]+ >		{ $$= atoi(yytext); }
+
+%%
+
+void
+rb_strterm_mark(VALUE obj)
+{
+}
+
+static VALUE
+yycompile0(VALUE arg)
+{
+    int n;
+    struct parser_params *p = (struct parser_params *)arg;
+
+    n = yyparse(p);
+    return TRUE;
+}
+
+static rb_ast_t *
+yycompile(VALUE vparser, struct parser_params *p, VALUE fname, int line)
+{
+    rb_ast_t *ast;
+
+    p->ast = ast = rb_ast_new();
+    rb_suppress_tracing(yycompile0, (VALUE)p);
+    p->ast = 0;
+    RB_GC_GUARD(vparser); /* prohibit tail call optimization */
+
+    return ast;
+}
+
+static const rb_data_type_t parser_data_type;
+
+static rb_ast_t*
+parser_compile_string(VALUE vparser, VALUE fname, VALUE s, int line)
+{
+    struct parser_params *p;
+
+    TypedData_Get_Struct(vparser, struct parser_params, &parser_data_type, p);
+
+    return yycompile(vparser, p, fname, line);
+}
+
+rb_ast_t*
+rb_parser_compile_string(VALUE vparser, const char *f, VALUE s, int line)
+{
+    return rb_parser_compile_string_path(vparser, rb_filesystem_str_new_cstr(f), s, line);
+}
+
+rb_ast_t*
+rb_parser_compile_string_path(VALUE vparser, VALUE f, VALUE s, int line)
+{
+    return parser_compile_string(vparser, f, s, line);
+}
+
+rb_ast_t*
+rb_parser_compile_file_path(VALUE vparser, VALUE fname, VALUE file, int start)
+{
+    return NULL;
+}
+
+RUBY_FUNC_EXPORTED const unsigned int ruby_global_name_punct_bits[(0x7e - 0x20 + 31) / 32];
+/* this can be shared with ripper, since it's independent from struct
+ * parser_params. */
+
+#define BIT(c, idx) (((c) / 32 - 1 == idx) ? (1U << ((c) % 32)) : 0)
+#define SPECIAL_PUNCT(idx) ( \
+	BIT('~', idx) | BIT('*', idx) | BIT('$', idx) | BIT('?', idx) | \
+	BIT('!', idx) | BIT('@', idx) | BIT('/', idx) | BIT('\\', idx) | \
+	BIT(';', idx) | BIT(',', idx) | BIT('.', idx) | BIT('=', idx) | \
+	BIT(':', idx) | BIT('<', idx) | BIT('>', idx) | BIT('\"', idx) | \
+	BIT('&', idx) | BIT('`', idx) | BIT('\'', idx) | BIT('+', idx) | \
+	BIT('0', idx))
+const unsigned int ruby_global_name_punct_bits[] = {
+    SPECIAL_PUNCT(0),
+    SPECIAL_PUNCT(1),
+    SPECIAL_PUNCT(2),
+};
+#undef BIT
+#undef SPECIAL_PUNCT
+
+void
+rb_parser_set_options(VALUE vparser, int print, int loop, int chomp, int split)
+{
+}
+
+void
+rb_parser_warn_location(VALUE vparser, int warn)
+{
+}
+
+static void
+parser_initialize(struct parser_params *p)
+{
+}
+
+VALUE
+rb_parser_new(void)
+{
+    struct parser_params *p;
+    VALUE parser = TypedData_Make_Struct(0, struct parser_params,
+                                         &parser_data_type, p);
+    parser_initialize(p);
+    return parser;
+}
+
+VALUE
+rb_parser_set_context(VALUE vparser, const struct rb_block *base, int main)
+{
+    return vparser;
+}
+
+VALUE
+rb_parser_end_seen_p(VALUE vparser)
+{
+    return Qfalse;
+}
+
+VALUE
+rb_parser_encoding(VALUE vparser)
+{
+    return Qnil;
+}
+
+VALUE
+rb_parser_set_yydebug(VALUE self, VALUE flag)
+{
+    return flag;
+}

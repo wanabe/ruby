@@ -825,18 +825,12 @@ $(ENC_MK): $(srcdir)/enc/make_encmake.rb $(srcdir)/enc/Makefile.in $(srcdir)/enc
 
 PHONY:
 
-{$(VPATH)}parse.c: {$(VPATH)}parse.y $(srcdir)/tool/ytab.sed {$(VPATH)}id.h peg$(EXEEXT) leg$(EXEEXT)
+{$(VPATH)}parse.c: $(srcdir)/parse.leg $(srcdir)/tool/ytab.sed {$(VPATH)}id.h peg$(EXEEXT) leg$(EXEEXT)
 {$(VPATH)}parse.h: {$(VPATH)}parse.c
 
-{$(srcdir)}.y.c:
+{$(VPATH)}parse.c: $(srcdir)/parse.leg leg$(EXEEXT)
 	$(ECHO) generating $@
-	$(Q)$(BASERUBY) $(srcdir)/tool/id2token.rb --path-separator=.$(PATH_SEPARATOR)./ --vpath=$(VPATH) id.h $(SRC_FILE) > parse.tmp.y
-	$(Q)$(YACC) -d $(YFLAGS) -o y.tab.c parse.tmp.y
-	$(Q)$(RM) parse.tmp.y
-	$(Q)sed -f $(srcdir)/tool/ytab.sed -e "/^#/s|parse\.tmp\.[iy]|$(SRC_FILE)|" -e "/^#/s!y\.tab\.c!$@!" y.tab.c > $@.new
-	$(Q)$(MV) $@.new $@
-	$(Q)sed -e "/^#line.*y\.tab\.h/d;/^#line.*parse.*\.y/d" y.tab.h > $(@:.c=.h)
-	$(Q)$(RM) y.tab.c y.tab.h
+	$(Q) ./leg$(EXEEXT) -o $@ $<
 
 $(PLATFORM_D):
 	$(Q) $(MAKEDIRS) $(PLATFORM_DIR) $(@D)
@@ -2362,7 +2356,7 @@ parse.$(OBJEXT): {$(VPATH)}onigmo.h
 parse.$(OBJEXT): {$(VPATH)}oniguruma.h
 parse.$(OBJEXT): {$(VPATH)}parse.c
 parse.$(OBJEXT): {$(VPATH)}parse.h
-parse.$(OBJEXT): {$(VPATH)}parse.y
+parse.$(OBJEXT): {$(VPATH)}parse.leg
 parse.$(OBJEXT): {$(VPATH)}probes.dmyh
 parse.$(OBJEXT): {$(VPATH)}probes.h
 parse.$(OBJEXT): {$(VPATH)}regenc.h
