@@ -23,21 +23,22 @@
         if (cc->me->def->type == VM_METHOD_TYPE_ISEQ && inlinable_iseq_p(ci, cc, iseq = rb_iseq_check(cc->me->def->body.iseq.iseqptr))) { /* CI_SET_FASTPATH in vm_callee_setup_arg */
             int param_size = iseq->body->param.size; /* TODO: check calling->argc for argument_arity_error */
 
-            fprintf(f, "{\n");
+% # JIT: Invalidate call cache if it requires vm_search_method. This allows to inline some of following things.
+            fprintf(f, "if (LIKELY(GET_GLOBAL_METHOD_STATE() == %"PRI_SERIALT_PREFIX"u &&\n", cc->method_state);
+            fprintf(f, "    RCLASS_SERIAL(CLASS_OF(stack[%d])) == %"PRI_SERIALT_PREFIX"u)) {\n", b->stack_size - 1 - argc, cc->class_serial);
+
 % # JIT: Declare stack_size to be used in some macro of _mjit_compile_insn_body.erb
             if (status->local_stack_p) {
                 fprintf(f, "    MAYBE_UNUSED(unsigned int) stack_size = %u;\n", b->stack_size);
             }
 
-% # JIT: Invalidate call cache if it requires vm_search_method. This allows to inline some of following things.
-<%= render 'mjit_compile_send_guard' -%>
+% # JIT: Print insn body in insns.def
+            fprintf(f, "    {\n");
+            fprintf(f, "      struct rb_calling_info calling;\n");
 
 % # JIT: move sp and pc if necessary
 <%= render 'mjit_compile_pc_and_sp', locals: { insn: insn } -%>
 
-% # JIT: Print insn body in insns.def
-            fprintf(f, "    {\n");
-            fprintf(f, "        struct rb_calling_info calling;\n");
 % if insn.name == 'send'
             fprintf(f, "        vm_caller_setup_arg_block(ec, reg_cfp, &calling, (CALL_INFO)0x%"PRIxVALUE", (rb_iseq_t *)0x%"PRIxVALUE", FALSE);\n", operands[0], operands[2]);
 % else
@@ -78,11 +79,8 @@
             fprintf(f, "        goto cancel;\n");
             fprintf(f, "    }\n");
 
-% # compiler: Move JIT compiler's internal stack pointer
-            b->stack_size += <%= insn.call_attribute('sp_inc') %>;
-
-            fprintf(f, "}\n");
-            break;
+            /* braces for `else` will be rendered by _mjit_compile_insn.erb */
+            fprintf(f, "} else ");
         }
     }
 }
