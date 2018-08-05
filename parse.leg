@@ -9,6 +9,10 @@ struct parser_params {
     rb_ast_t *ast;
 };
 
+#define YY_CTX_LOCAL 1
+#define YY_CTX_MEMBERS \
+  struct parser_params *p;
+
 %}
 
 program = top_compstmt {}
@@ -37,8 +41,12 @@ yycompile0(VALUE arg)
 {
     int n;
     struct parser_params *p = (struct parser_params *)arg;
+    yycontext _yyctx = { 0 };
 
-    n = yyparse(p);
+    _yyctx.p = p;
+    n = yyparse(&_yyctx);
+
+    p->ast->body.root = tree;
     return TRUE;
 }
 
