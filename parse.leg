@@ -1,12 +1,15 @@
 %{
 /* parse.leg */
 
+#define YYLTYPE rb_code_location_t
+
 #include "ruby/ruby.h"
 #include "internal.h"
 #include "node.h"
 
 struct parser_params {
     rb_ast_t *ast;
+    NODE *eval_tree;
 };
 
 #define YY_CTX_LOCAL 1
@@ -31,6 +34,13 @@ tINTEGER	= < [0-9][1-9]+ >		{ $$= atoi(yytext); }
 
 %%
 
+static const rb_code_location_t NULL_LOC = { {0, -1}, {0, -1} };
+
+static NODE* node_newnode(struct parser_params *, enum node_type, VALUE, VALUE, VALUE, const rb_code_location_t*);
+#define rb_node_newnode(type, a1, a2, a3, loc) node_newnode(p, (type), (a1), (a2), (a3), (loc))
+
+static NODE *nd_set_loc(NODE *nd, const YYLTYPE *loc);
+
 void
 rb_strterm_mark(VALUE obj)
 {
@@ -40,11 +50,17 @@ static VALUE
 yycompile0(VALUE arg)
 {
     int n;
+    NODE *tree;
     struct parser_params *p = (struct parser_params *)arg;
     yycontext _yyctx = { 0 };
 
     _yyctx.p = p;
     n = yyparse(&_yyctx);
+
+    tree = p->eval_tree;
+    if (!tree) {
+	tree = NEW_NIL(&NULL_LOC);
+    }
 
     p->ast->body.root = tree;
     return TRUE;
@@ -112,6 +128,25 @@ const unsigned int ruby_global_name_punct_bits[] = {
 };
 #undef BIT
 #undef SPECIAL_PUNCT
+
+static NODE*
+node_newnode(struct parser_params *p, enum node_type type, VALUE a0, VALUE a1, VALUE a2, const rb_code_location_t *loc)
+{
+    NODE *n = rb_ast_newnode(p->ast);
+
+    rb_node_init(n, type, a0, a1, a2);
+
+    nd_set_loc(n, loc);
+    return n;
+}
+
+static NODE *
+nd_set_loc(NODE *nd, const YYLTYPE *loc)
+{
+    nd->nd_loc = *loc;
+    nd_set_line(nd, loc->beg_pos.lineno);
+    return nd;
+}
 
 void
 rb_parser_set_options(VALUE vparser, int print, int loop, int chomp, int split)
