@@ -2,19 +2,62 @@
 /* parse.leg */
 
 #define YYLTYPE rb_code_location_t
+#define YY_DEBUG 1
+#define YYSTYPE	int
 
 #include "ruby/ruby.h"
 #include "internal.h"
 #include "node.h"
 
 struct parser_params {
+    struct {
+	VALUE (*gets)(struct parser_params*,VALUE);
+	VALUE input;
+	VALUE prevline;
+	VALUE lastline;
+	VALUE nextline;
+	const char *pbeg;
+	const char *pcur;
+	const char *pend;
+	const char *ptok;
+	long gets_ptr;
+	/* track the nest level of any parens "()[]{}" */
+	int paren_nest;
+	/* keep p->lex.paren_nest at the beginning of lambda "->" to detect tLAMBEG and keyword_do_LAMBDA */
+	int lpar_beg;
+	/* track the nest level of only braces "{}" */
+	int brace_nest;
+    } lex;
     rb_ast_t *ast;
+
+    unsigned int eofp: 1;
+    unsigned int cr_seen: 1;
+
     NODE *eval_tree;
 };
 
 #define YY_CTX_LOCAL 1
 #define YY_CTX_MEMBERS \
   struct parser_params *p;
+
+#define YY_INPUT(yy, buf, result, max_size) result = parser_input(yy->p, buf)
+
+static int parser_input(struct parser_params *p, char *buf);
+
+static inline VALUE
+add_mark_object(struct parser_params *p, VALUE obj)
+{
+    if (!SPECIAL_CONST_P(obj)
+#ifdef RIPPER
+	&& !RB_TYPE_P(obj, T_NODE) /* Ripper jumbles NODE objects and other objects... */
+#endif
+    ) {
+	rb_ast_add_mark_object(p->ast, obj);
+    }
+    return obj;
+}
+
+static YYSTYPE set_integer_literal(struct parser_params *p, VALUE v, int suffix);
 
 %}
 
@@ -30,16 +73,43 @@ literal = numeric {}
 numeric = simple_numeric {}
 simple_numeric = tINTEGER {}
 
-tINTEGER	= < [0-9][1-9]+ >		{ $$= atoi(yytext); }
+tINTEGER	= < [0-9][1-9]* >		{ set_integer_literal(yy->p, INT2FIX(atoi(yytext)), 0); }
 
 %%
 
+# define yylval  (*p->lval)
+
+#define token_flush(ptr) ((ptr)->lex.ptok = (ptr)->lex.pcur)
+
+# define set_yylval_node(x) {				\
+  yylval.node = (x);					\
+}
+
 static const rb_code_location_t NULL_LOC = { {0, -1}, {0, -1} };
+
+# define set_yylval_literal(x) set_yylval_node(NEW_LIT(x, &_cur_loc))
 
 static NODE* node_newnode(struct parser_params *, enum node_type, VALUE, VALUE, VALUE, const rb_code_location_t*);
 #define rb_node_newnode(type, a1, a2, a3, loc) node_newnode(p, (type), (a1), (a2), (a3), (loc))
 
 static NODE *nd_set_loc(NODE *nd, const YYLTYPE *loc);
+
+static YYSTYPE
+set_number_literal(struct parser_params *p, VALUE v,
+		   YYSTYPE type, int suffix)
+{
+    set_yylval_literal(v);
+    add_mark_object(p, v);
+    SET_LEX_STATE(EXPR_END);
+    return type;
+}
+
+static YYSTYPE
+set_integer_literal(struct parser_params *p, VALUE v, int suffix)
+{
+    YYSTYPE type = tINTEGER;
+    return set_number_literal(p, v, type, suffix);
+}
 
 void
 rb_strterm_mark(VALUE obj)
@@ -79,6 +149,34 @@ yycompile(VALUE vparser, struct parser_params *p, VALUE fname, int line)
     return ast;
 }
 
+static VALUE
+lex_get_str(struct parser_params *p, VALUE s)
+{
+    char *beg, *end, *start;
+    long len;
+
+    beg = RSTRING_PTR(s);
+    len = RSTRING_LEN(s);
+    start = beg;
+    if (p->lex.gets_ptr) {
+	if (len == p->lex.gets_ptr) return Qnil;
+	beg += p->lex.gets_ptr;
+	len -= p->lex.gets_ptr;
+    }
+    end = memchr(beg, '\n', len);
+    if (end) len = ++end - beg;
+    p->lex.gets_ptr += len;
+    return rb_str_subseq(s, beg - start, len);
+}
+
+static VALUE
+lex_getline(struct parser_params *p)
+{
+    VALUE line = (*p->lex.gets)(p, p->lex.input);
+    if (NIL_P(line)) return line;
+    return line;
+}
+
 static const rb_data_type_t parser_data_type;
 
 static rb_ast_t*
@@ -87,6 +185,11 @@ parser_compile_string(VALUE vparser, VALUE fname, VALUE s, int line)
     struct parser_params *p;
 
     TypedData_Get_Struct(vparser, struct parser_params, &parser_data_type, p);
+
+    p->lex.gets = lex_get_str;
+    p->lex.gets_ptr = 0;
+    p->lex.input = rb_str_new_frozen(s);
+    p->lex.pbeg = p->lex.pcur = p->lex.pend = 0;
 
     return yycompile(vparser, p, fname, line);
 }
@@ -107,6 +210,32 @@ rb_ast_t*
 rb_parser_compile_file_path(VALUE vparser, VALUE fname, VALUE file, int start)
 {
     return NULL;
+}
+
+#define lex_goto_eol(p) ((p)->lex.pcur = (p)->lex.pend)
+
+static int
+nextline(struct parser_params *p)
+{
+    VALUE v = p->lex.nextline;
+    p->lex.nextline = 0;
+    if (!v) {
+	if (p->eofp)
+	    return -1;
+
+	if (!p->lex.input || NIL_P(v = lex_getline(p))) {
+	    p->eofp = 1;
+	    lex_goto_eol(p);
+	    return -1;
+	}
+	p->cr_seen = FALSE;
+    }
+    p->lex.pbeg = p->lex.pcur = RSTRING_PTR(v);
+    p->lex.pend = p->lex.pcur + RSTRING_LEN(v);
+    token_flush(p);
+    p->lex.prevline = p->lex.lastline;
+    p->lex.lastline = v;
+    return 0;
 }
 
 RUBY_FUNC_EXPORTED const unsigned int ruby_global_name_punct_bits[(0x7e - 0x20 + 31) / 32];
@@ -195,4 +324,13 @@ VALUE
 rb_parser_set_yydebug(VALUE self, VALUE flag)
 {
     return flag;
+}
+
+static int parser_input(struct parser_params *p, char *buf) {
+    if (UNLIKELY((p->lex.pcur == p->lex.pend) || p->eofp || p->lex.nextline)) {
+	if (nextline(p)) return 0;
+    }
+    memcpy(buf, p->lex.pcur, p->lex.pend - p->lex.pcur);
+    p->lex.pcur = p->lex.pend;
+    return 1;
 }
