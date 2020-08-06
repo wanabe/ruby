@@ -8999,7 +8999,11 @@ insn_data_to_s_detail(INSN *iobj)
 	      case TS_VALUE:	/* VALUE */
 		{
 		    VALUE v = OPERAND_AT(iobj, j);
-		    rb_str_concat(str, opobj_inspect(v));
+                    if (!CLASS_OF(v))
+                        rb_str_cat2(str, "<hidden>");
+                    else {
+                        rb_str_concat(str, opobj_inspect(v));
+                    }
 		    break;
 		}
 	      case TS_ID:	/* ID */
@@ -9035,7 +9039,7 @@ insn_data_to_s_detail(INSN *iobj)
 		}
 		break;
               case TS_BUILTIN:
-                rb_bug("unsupported: TS_BUILTIN");
+                rb_str_cat2(str, "<TS_BUILTIN>");
                 break;
 	      default:{
 		rb_raise(rb_eSyntaxError, "unknown operand type: %c", type);
