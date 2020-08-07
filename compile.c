@@ -2060,7 +2060,13 @@ fix_sp_depth(rb_iseq_t *iseq, LINK_ANCHOR *const anchor)
 			}
 			if (lobj->sp == -1) {
 			    lobj->sp = sp;
-			}
+#if CPDEBUG >= 5
+                        } else if (lobj->sp != sp) {
+                           fprintf(stderr, "%s:%d:fix_sp_depth: overwrite L%03d sp %d -> %d\n",
+                                   RSTRING_PTR(rb_iseq_path(iseq)), line,
+                                   lobj->label_no, lobj->sp, sp);
+#endif
+                        }
 		    }
 		}
 		break;
@@ -2072,6 +2078,13 @@ fix_sp_depth(rb_iseq_t *iseq, LINK_ANCHOR *const anchor)
 		    lobj->sp = sp;
 		}
 		else {
+#if CPDEBUG >= 5
+                    if (lobj->sp != sp) {
+                        fprintf(stderr, "%s:%d:fix_sp_depth: overwrite sp from L%03d %d -> %d\n",
+                                RSTRING_PTR(rb_iseq_path(iseq)), line,
+                                lobj->label_no, sp, lobj->sp);
+                    }
+#endif
 		    sp = lobj->sp;
 		}
 		break;
@@ -2189,6 +2202,13 @@ iseq_set_sequence(rb_iseq_t *iseq, LINK_ANCHOR *const anchor)
 	    {
 		LABEL *lobj = (LABEL *)list;
 		lobj->position = code_index;
+#if CPDEBUG >= 5
+                if (lobj->sp != -1 && lobj->sp != sp) {
+                    fprintf(stderr, "%s:iseq_set_sequence: overwrite sp L%03d %d -> %d\n",
+                            RSTRING_PTR(rb_iseq_path(iseq)),
+                            lobj->label_no, lobj->sp, sp);
+                }
+#endif
 		sp = lobj->sp;
 		break;
 	    }
@@ -2337,6 +2357,13 @@ iseq_set_sequence(rb_iseq_t *iseq, LINK_ANCHOR *const anchor)
 	  case ISEQ_ELEMENT_LABEL:
 	    {
 		LABEL *lobj = (LABEL *)list;
+#if CPDEBUG >= 5
+                if (lobj->sp != -1 && lobj->sp != sp) {
+                    fprintf(stderr, "%s:iseq_set_sequence: overwrite sp L%03d %d -> %d\n",
+                            RSTRING_PTR(rb_iseq_path(iseq)),
+                            lobj->label_no, lobj->sp, sp);
+                }
+#endif
 		sp = lobj->sp;
 		break;
 	    }
