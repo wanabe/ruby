@@ -2876,7 +2876,6 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 	    goto again;
 	}
         else if (IS_INSN_ID(diobj, leave)) {
-	    INSN *pop;
 	    /*
 	     *  jump LABEL
 	     *  ...
@@ -2884,7 +2883,6 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 	     *  leave
 	     * =>
 	     *  leave
-	     *  pop
 	     *  ...
 	     * LABEL:
 	     *  leave
@@ -2894,9 +2892,6 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
             iobj->insn_id = BIN(leave);
 	    iobj->operand_size = 0;
 	    iobj->insn_info = diobj->insn_info;
-	    /* adjust stack depth */
-	    pop = new_insn_body(iseq, diobj->insn_info.line_no, BIN(pop), 0);
-            ELEM_INSERT_NEXT(&iobj->link, &pop->link);
 	    goto again;
 	}
         else if (IS_INSN(iobj->link.prev) &&
@@ -5445,6 +5440,9 @@ compile_if(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *const node, int 
 		branches);
 	    end_label = NEW_LABEL(line);
 	    ADD_INSNL(then_seq, line, jump, end_label);
+            if (!popped) {
+                ADD_INSN(then_seq, line, pop);
+            }
 	}
 	ADD_SEQ(ret, then_seq);
     }
