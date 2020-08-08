@@ -5599,6 +5599,10 @@ compile_case2(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *const orig_no
     while (node && nd_type(node) == NODE_WHEN) {
 	const int line = nd_line(node);
 	LABEL *l1 = NEW_LABEL(line);
+
+        if (!popped && branch_id) {
+            ADD_INSN(body_seq, line, pop);
+        }
 	ADD_LABEL(body_seq, l1);
 	add_trace_branch_coverage(
                 iseq,
@@ -5649,6 +5653,9 @@ compile_case2(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *const orig_no
 	branches);
     CHECK(COMPILE_(ret, "else", node, popped));
     ADD_INSNL(ret, nd_line(orig_node), jump, endlabel);
+    if (!popped) {
+        ADD_INSN(ret, nd_line(orig_node), pop);
+    }
 
     ADD_SEQ(ret, body_seq);
     ADD_LABEL(ret, endlabel);
