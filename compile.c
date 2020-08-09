@@ -95,6 +95,9 @@ typedef struct iseq_insn_data {
 	int line_no;
 	rb_event_flag_t events;
     } insn_info;
+#if defined(CPDEBUG) && CPDEBUG >= 5
+    int c_line_no;
+#endif
 } INSN;
 
 typedef struct iseq_adjust_data {
@@ -217,30 +220,30 @@ const ID rb_iseq_shared_exc_local_tbl[] = {idERROR_INFO};
 
 /* add an instruction */
 #define ADD_INSN(seq, line, insn) \
-  ADD_ELEM((seq), (LINK_ELEMENT *) new_insn_body(iseq, (line), BIN(insn), 0))
+  ADD_ELEM((seq), (LINK_ELEMENT *) new_insn_body(iseq, (line), __LINE__, BIN(insn), 0))
 
 /* insert an instruction before next */
 #define INSERT_BEFORE_INSN(next, line, insn) \
-  ELEM_INSERT_PREV(&(next)->link, (LINK_ELEMENT *) new_insn_body(iseq, (line), BIN(insn), 0))
+  ELEM_INSERT_PREV(&(next)->link, (LINK_ELEMENT *) new_insn_body(iseq, (line), __LINE__, BIN(insn), 0))
 
 /* insert an instruction after prev */
 #define INSERT_AFTER_INSN(prev, line, insn) \
-  ELEM_INSERT_NEXT(&(prev)->link, (LINK_ELEMENT *) new_insn_body(iseq, (line), BIN(insn), 0))
+  ELEM_INSERT_NEXT(&(prev)->link, (LINK_ELEMENT *) new_insn_body(iseq, (line), __LINE__, BIN(insn), 0))
 
 /* add an instruction with some operands (1, 2, 3, 5) */
 #define ADD_INSN1(seq, line, insn, op1) \
   ADD_ELEM((seq), (LINK_ELEMENT *) \
-           new_insn_body(iseq, (line), BIN(insn), 1, (VALUE)(op1)))
+           new_insn_body(iseq, (line), __LINE__, BIN(insn), 1, (VALUE)(op1)))
 
 /* insert an instruction with some operands (1, 2, 3, 5) before next */
 #define INSERT_BEFORE_INSN1(next, line, insn, op1) \
   ELEM_INSERT_PREV(&(next)->link, (LINK_ELEMENT *) \
-           new_insn_body(iseq, (line), BIN(insn), 1, (VALUE)(op1)))
+           new_insn_body(iseq, (line), __LINE__, BIN(insn), 1, (VALUE)(op1)))
 
 /* insert an instruction with some operands (1, 2, 3, 5) after prev */
 #define INSERT_AFTER_INSN1(prev, line, insn, op1) \
   ELEM_INSERT_NEXT(&(prev)->link, (LINK_ELEMENT *) \
-           new_insn_body(iseq, (line), BIN(insn), 1, (VALUE)(op1)))
+           new_insn_body(iseq, (line), __LINE__, BIN(insn), 1, (VALUE)(op1)))
 
 #define LABEL_REF(label) ((label)->refcnt++)
 
@@ -249,11 +252,11 @@ const ID rb_iseq_shared_exc_local_tbl[] = {idERROR_INFO};
 
 #define ADD_INSN2(seq, line, insn, op1, op2) \
   ADD_ELEM((seq), (LINK_ELEMENT *) \
-           new_insn_body(iseq, (line), BIN(insn), 2, (VALUE)(op1), (VALUE)(op2)))
+           new_insn_body(iseq, (line), __LINE__, BIN(insn), 2, (VALUE)(op1), (VALUE)(op2)))
 
 #define ADD_INSN3(seq, line, insn, op1, op2, op3) \
   ADD_ELEM((seq), (LINK_ELEMENT *) \
-           new_insn_body(iseq, (line), BIN(insn), 3, (VALUE)(op1), (VALUE)(op2), (VALUE)(op3)))
+           new_insn_body(iseq, (line), __LINE__, BIN(insn), 3, (VALUE)(op1), (VALUE)(op2), (VALUE)(op3)))
 
 /* Specific Insn factory */
 #define ADD_SEND(seq, line, id, argc) \
@@ -275,7 +278,7 @@ const ID rb_iseq_shared_exc_local_tbl[] = {idERROR_INFO};
   ADD_SEND_R((seq), (line), (id), (argc), (block), (VALUE)INT2FIX(VM_CALL_FCALL), NULL)
 
 #define ADD_SEND_R(seq, line, id, argc, block, flag, keywords) \
-  ADD_ELEM((seq), (LINK_ELEMENT *) new_insn_send(iseq, (line), (id), (VALUE)(argc), (block), (VALUE)(flag), (keywords)))
+  ADD_ELEM((seq), (LINK_ELEMENT *) new_insn_send(iseq, (line), __LINE__, (id), (VALUE)(argc), (block), (VALUE)(flag), (keywords)))
 
 #define ADD_TRACE(seq, event) \
   ADD_ELEM((seq), (LINK_ELEMENT *)new_trace_body(iseq, (event), 0))
@@ -468,7 +471,7 @@ static void dump_disasm_list(const LINK_ELEMENT *elem);
 static int insn_data_length(INSN *iobj);
 static int calc_sp_depth(int depth, INSN *iobj);
 
-static INSN *new_insn_body(rb_iseq_t *iseq, int line_no, enum ruby_vminsn_type insn_id, int argc, ...);
+static INSN *new_insn_body(rb_iseq_t *iseq, int line_no, int c_line_no, enum ruby_vminsn_type insn_id, int argc, ...);
 static LABEL *new_label_body(rb_iseq_t *iseq, long line);
 static ADJUST *new_adjust_body(rb_iseq_t *iseq, LABEL *label, int line);
 static TRACE *new_trace_body(rb_iseq_t *iseq, rb_event_flag_t event, long data);
@@ -1238,7 +1241,7 @@ new_adjust_body(rb_iseq_t *iseq, LABEL *label, int line)
 }
 
 static INSN *
-new_insn_core(rb_iseq_t *iseq, int line_no,
+new_insn_core(rb_iseq_t *iseq, int line_no, int c_line_no,
 	      int insn_id, int argc, VALUE *argv)
 {
     INSN *iobj = compile_data_alloc_insn(iseq);
@@ -1253,11 +1256,14 @@ new_insn_core(rb_iseq_t *iseq, int line_no,
     iobj->operands = argv;
     iobj->operand_size = argc;
     iobj->sc_state = 0;
+#if CPDEBUG >= 5
+    iobj->c_line_no = c_line_no;
+#endif
     return iobj;
 }
 
 static INSN *
-new_insn_body(rb_iseq_t *iseq, int line_no, enum ruby_vminsn_type insn_id, int argc, ...)
+new_insn_body(rb_iseq_t *iseq, int line_no, int c_line_no, enum ruby_vminsn_type insn_id, int argc, ...)
 {
     VALUE *operands = 0;
     va_list argv;
@@ -1271,7 +1277,7 @@ new_insn_body(rb_iseq_t *iseq, int line_no, enum ruby_vminsn_type insn_id, int a
 	}
 	va_end(argv);
     }
-    return new_insn_core(iseq, line_no, insn_id, argc, operands);
+    return new_insn_core(iseq, line_no, c_line_no, insn_id, argc, operands);
 }
 
 static const struct rb_callinfo *
@@ -1297,12 +1303,12 @@ new_callinfo(rb_iseq_t *iseq, ID mid, int argc, unsigned int flag, struct rb_cal
 }
 
 static INSN *
-new_insn_send(rb_iseq_t *iseq, int line_no, ID id, VALUE argc, const rb_iseq_t *blockiseq, VALUE flag, struct rb_callinfo_kwarg *keywords)
+new_insn_send(rb_iseq_t *iseq, int line_no, int c_line_no, ID id, VALUE argc, const rb_iseq_t *blockiseq, VALUE flag, struct rb_callinfo_kwarg *keywords)
 {
     VALUE *operands = compile_data_calloc2(iseq, sizeof(VALUE), 2);
     operands[0] = (VALUE)new_callinfo(iseq, id, FIX2INT(argc), FIX2INT(flag), keywords, blockiseq != NULL);
     operands[1] = (VALUE)blockiseq;
-    return new_insn_core(iseq, line_no, BIN(send), 2, operands);
+    return new_insn_core(iseq, line_no, c_line_no, BIN(send), 2, operands);
 }
 
 static rb_iseq_t *
@@ -1407,7 +1413,7 @@ iseq_insert_nop_between_end_and_cont(rb_iseq_t *iseq)
         LINK_ELEMENT *e;
         for (e = end; e && (IS_LABEL(e) || IS_TRACE(e)); e = e->next) {
             if (e == cont) {
-                INSN *nop = new_insn_core(iseq, 0, BIN(nop), 0, 0);
+                INSN *nop = new_insn_core(iseq, 0, __LINE__, BIN(nop), 0, 0);
                 ELEM_INSERT_NEXT(end, &nop->link);
                 break;
             }
@@ -2941,7 +2947,7 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
 		 *   pop
 		 *   jump L1
 		 */
-		INSN *popiobj = new_insn_core(iseq, iobj->insn_info.line_no,
+		INSN *popiobj = new_insn_core(iseq, iobj->insn_info.line_no, __LINE__,
 					      BIN(pop), 0, 0);
 		ELEM_REPLACE(&piobj->link, &popiobj->link);
 	    }
@@ -3098,12 +3104,12 @@ iseq_peephole_optimize(rb_iseq_t *iseq, LINK_ELEMENT *list, const int do_tailcal
                         ELEM_REMOVE(iobj->link.prev);
                     }
                     else if (!iseq_pop_newarray(iseq, pobj)) {
-                        pobj = new_insn_core(iseq, pobj->insn_info.line_no, BIN(pop), 0, NULL);
+                        pobj = new_insn_core(iseq, pobj->insn_info.line_no, __LINE__, BIN(pop), 0, NULL);
                         ELEM_INSERT_PREV(&iobj->link, &pobj->link);
                     }
                     if (cond) {
                         if (prev_dup) {
-                            pobj = new_insn_core(iseq, pobj->insn_info.line_no, BIN(putnil), 0, NULL);
+                            pobj = new_insn_core(iseq, pobj->insn_info.line_no, __LINE__, BIN(putnil), 0, NULL);
                             ELEM_INSERT_NEXT(&iobj->link, &pobj->link);
                         }
                         iobj->insn_id = BIN(jump);
@@ -3596,7 +3602,7 @@ new_unified_insn(rb_iseq_t *iseq,
 	list = list->next;
     }
 
-    return new_insn_core(iseq, iobj->insn_info.line_no, insn_id, argc, operands);
+    return new_insn_core(iseq, iobj->insn_info.line_no, __LINE__, insn_id, argc, operands);
 }
 #endif
 
@@ -3748,7 +3754,7 @@ iseq_set_sequence_stackcaching(rb_iseq_t *iseq, LINK_ANCHOR *const anchor)
 			/* exception merge point */
 			if (state != SCS_AX) {
 			    INSN *rpobj =
-				new_insn_body(iseq, 0, BIN(reput), 0);
+				new_insn_body(iseq, 0, __LINE__, BIN(reput), 0);
 
 			    /* replace this insn */
 			    ELEM_REPLACE(list, (LINK_ELEMENT *)rpobj);
@@ -5082,7 +5088,7 @@ compile_defined_expr(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *const 
 	lfinish[1] = 0;
 	defined_expr(iseq, ret, node->nd_head, lfinish, needstr);
 	if (lfinish[1]) {
-	    ELEM_INSERT_NEXT(last, &new_insn_body(iseq, line, BIN(putnil), 0)->link);
+	    ELEM_INSERT_NEXT(last, &new_insn_body(iseq, line, __LINE__, BIN(putnil), 0)->link);
 	    ADD_INSN(ret, line, swap);
 	    ADD_INSN(ret, line, pop);
 	    ADD_LABEL(ret, lfinish[1]);
@@ -5324,7 +5330,7 @@ compile_named_capture_assign(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE
 	last = ret->last;
         NO_CHECK(COMPILE_POPPED(ret, "capture", vars->nd_head));
 	last = last->next; /* putobject :var */
-	cap = new_insn_send(iseq, line, idAREF, INT2FIX(1),
+	cap = new_insn_send(iseq, line, __LINE__, idAREF, INT2FIX(1),
 			    NULL, INT2FIX(0), NULL);
 	ELEM_INSERT_PREV(last->next, (LINK_ELEMENT *)cap);
 #if !defined(NAMED_CAPTURE_SINGLE_OPT) || NAMED_CAPTURE_SINGLE_OPT-0
@@ -9136,7 +9142,11 @@ dump_disasm_list_with_cursor(const LINK_ELEMENT *link, const LINK_ELEMENT *curr,
 	    {
 		iobj = (INSN *)link;
 		str = insn_data_to_s_detail(iobj);
+#if CPDEBUG >= 5
+		printf("  %04d %-65s(%4u) [%s:%5d]\n", pos, StringValueCStr(str), iobj->insn_info.line_no, __FILE__, iobj->c_line_no);
+#else
 		printf("  %04d %-65s(%4u)\n", pos, StringValueCStr(str), iobj->insn_info.line_no);
+#endif
 		pos += insn_data_length(iobj);
 		break;
 	    }
@@ -9426,7 +9436,7 @@ iseq_build_from_ary_body(rb_iseq_t *iseq, LINK_ANCHOR *const anchor,
 
                 // add element before operand setup to make GC root
                 ADD_ELEM(anchor,
-                         (LINK_ELEMENT*)new_insn_core(iseq, line_no,
+                         (LINK_ELEMENT*)new_insn_core(iseq, line_no, __LINE__,
                                                       (enum ruby_vminsn_type)insn_id, argc, argv));
 
 		for (j=0; j<argc; j++) {
@@ -9510,7 +9520,7 @@ iseq_build_from_ary_body(rb_iseq_t *iseq, LINK_ANCHOR *const anchor,
 	    }
             else {
                 ADD_ELEM(anchor,
-                         (LINK_ELEMENT*)new_insn_core(iseq, line_no,
+                         (LINK_ELEMENT*)new_insn_core(iseq, line_no, __LINE__,
                                                       (enum ruby_vminsn_type)insn_id, argc, NULL));
             }
 	}
