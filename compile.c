@@ -9132,6 +9132,7 @@ dump_disasm_list_with_cursor(const LINK_ELEMENT *link, const LINK_ELEMENT *curr,
     INSN *iobj;
     LABEL *lobj;
     VALUE str;
+    int sp = 0;
 
     printf("-- raw disasm--------\n");
 
@@ -9140,10 +9141,12 @@ dump_disasm_list_with_cursor(const LINK_ELEMENT *link, const LINK_ELEMENT *curr,
 	switch (link->type) {
 	  case ISEQ_ELEMENT_INSN:
 	    {
+                int orig_sp = sp;
 		iobj = (INSN *)link;
 		str = insn_data_to_s_detail(iobj);
 #if CPDEBUG >= 5
-		printf("  %04d %-65s(%4u) [%s:%5d]\n", pos, StringValueCStr(str), iobj->insn_info.line_no, __FILE__, iobj->c_line_no);
+                sp = calc_sp_depth(sp, iobj);
+		printf("  %04d %-65s(%4u) [%s:%5d] sp: %d -> %d\n", pos, StringValueCStr(str), iobj->insn_info.line_no, __FILE__, iobj->c_line_no, orig_sp, sp);
 #else
 		printf("  %04d %-65s(%4u)\n", pos, StringValueCStr(str), iobj->insn_info.line_no);
 #endif
@@ -9155,6 +9158,11 @@ dump_disasm_list_with_cursor(const LINK_ELEMENT *link, const LINK_ELEMENT *curr,
 		lobj = (LABEL *)link;
 		printf(LABEL_FORMAT" [sp: %d]%s\n", lobj->label_no, lobj->sp,
 		       dest == lobj ? " <---" : "");
+#if CPDEBUG >= 5
+                if (lobj->sp != -1) {
+                    sp = lobj->sp;
+                }
+#endif
 		break;
 	    }
 	  case ISEQ_ELEMENT_TRACE:
@@ -9167,6 +9175,13 @@ dump_disasm_list_with_cursor(const LINK_ELEMENT *link, const LINK_ELEMENT *curr,
 	    {
 		ADJUST *adjust = (ADJUST *)link;
 		printf("  adjust: [label: %d]\n", adjust->label ? adjust->label->label_no : -1);
+#if CPDEBUG >= 5
+                if (adjust->label && adjust->label->sp != -1) {
+                    sp = lobj->sp;
+                } else {
+                    sp = -100;
+                }
+#endif
 		break;
 	    }
 	  default:
