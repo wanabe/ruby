@@ -2059,7 +2059,7 @@ autoload_i_mark(void *ptr)
     rb_gc_mark_movable(p->feature);
 
     /* allow GC to free us if no modules refer to this via autoload_const.ad */
-    if (list_empty(&p->constants)) {
+    if (list_empty(&p->constants) && autoload_featuremap != Qundef) {
         rb_hash_delete(autoload_featuremap, p->feature);
     }
 }
@@ -2162,6 +2162,11 @@ rb_autoload_str(VALUE mod, ID id, VALUE file)
     struct st_table *tbl;
     struct autoload_data_i *ele;
     rb_const_entry_t *ce;
+
+    if (autoload_featuremap == Qundef) {
+        rb_funcall(rb_vm_top_self(), rb_intern("require"), 1, file);
+        return;
+    }
 
     if (!rb_is_const_id(id)) {
 	rb_raise(rb_eNameError, "autoload must be constant name: %"PRIsVALUE"",
@@ -3078,6 +3083,25 @@ current_autoload_data(VALUE mod, ID id, struct autoload_const **acp)
 	return ele;
     }
     return 0;
+}
+
+static int
+rb_load_registered_autoload_i(VALUE file, VALUE ad, VALUE dummy) {
+    struct autoload_data_i *ele;
+    ele = rb_check_typeddata(ad, &autoload_data_i_type);
+    rb_protect(rb_require_string, ele->feature, 0);
+    return ST_DELETE;
+}
+
+void
+rb_load_registered_autoload() {
+    VALUE featuremap = autoload_featuremap;
+    assert(!rb_multi_ractor_p());
+    if (!featuremap || featuremap == Qundef) {
+        return;
+    }
+    autoload_featuremap = Qundef;
+    rb_hash_foreach(featuremap, rb_load_registered_autoload_i, (VALUE)0);
 }
 
 static void

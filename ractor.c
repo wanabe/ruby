@@ -13,6 +13,7 @@
 #include "internal/rational.h"
 #include "internal/struct.h"
 #include "internal/thread.h"
+#include "internal/variable.h"
 #include "variable.h"
 #include "gc.h"
 #include "transient_heap.h"
@@ -1426,6 +1427,7 @@ cancel_single_ractor_mode(void)
 
     rb_gc_start();
     rb_transient_heap_evacuate();
+    rb_load_registered_autoload();
 
     ruby_single_main_ractor = NULL;
 
