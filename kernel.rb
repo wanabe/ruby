@@ -148,6 +148,30 @@ module Kernel
     yield(self)
   end
 
+  #
+  #  call-seq:
+  #     deconstruct    -> nil
+  #
+  #  Raises <i>NoMatchingPatternError</i> always. It is a just placeholder.
+  #  The method should be override by subclasses to support
+  #  array pattern maching.
+  #
+  def deconstruct
+    raise NoMatchingPatternError, self
+  end
+
+  #
+  #  call-seq:
+  #     deconstruct_keys(keys)    -> nil
+  #
+  #  Raises <i>NoMatchingPatternError</i> always. It is a just placeholder.
+  #  The method should be override by subclasses to support
+  #  hash pattern maching.
+  #
+  def deconstruct_keys(keys)
+    raise NoMatchingPatternError, self
+  end
+
   module_function
 
   #

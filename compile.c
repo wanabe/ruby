@@ -6299,11 +6299,6 @@ iseq_compile_pattern_each(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *c
             ADD_INSNL(ret, line, branchunless, match_failed);
         }
 
-        ADD_INSN(ret, line, dup);
-        ADD_INSN1(ret, line, putobject, ID2SYM(rb_intern("deconstruct_keys")));
-        ADD_SEND(ret, line, idRespond_to, INT2FIX(1));
-        ADD_INSNL(ret, line, branchunless, match_failed);
-
         if (NIL_P(keys)) {
             ADD_INSN(ret, line, putnil);
         }
@@ -6551,17 +6546,6 @@ iseq_compile_array_deconstruct(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NO
     }
 
     ADD_LABEL(ret, deconstruct);
-    ADD_INSN(ret, line, dup);
-    ADD_INSN1(ret, line, putobject, ID2SYM(rb_intern("deconstruct")));
-    ADD_SEND(ret, line, idRespond_to, INT2FIX(1));
-
-    // Cache the result of respond_to? (in case it's false is stays there, if true - it's overwritten after #deconstruct)
-    if (deconstructed_pos) {
-        ADD_INSN1(ret, line, setn, INT2FIX(deconstructed_pos + 1));
-    }
-
-    ADD_INSNL(ret, line, branchunless, match_failed);
-
     ADD_SEND(ret, line, rb_intern("deconstruct"), INT2FIX(0));
 
     // Cache the result (if it's cacheable - currently, only top-level array patterns)
