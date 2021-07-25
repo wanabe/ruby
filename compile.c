@@ -5982,12 +5982,25 @@ iseq_compile_pattern_each(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *c
         ADD_SEND(ret, line, apinfo->rest_arg ? idGE : idEq, INT2FIX(1));
         ADD_INSNL(ret, line, branchunless, match_failed);
 
-        for (i = 0; i < pre_args_num; i++) {
+        ADD_INSN(ret, line, dup);
+        ADD_INSN2(ret, line, expandarray, INT2FIX(pre_args_num), INT2FIX(0));
+        {
+            LABEL *ary_matched = NEW_LABEL(line);
+            DECL_ANCHOR(ary_match_failed);
+            INIT_ANCHOR(ary_match_failed);
+            for (i = 0; i < pre_args_num; i++) {
+                LABEL *ary_item_match_failed = NEW_LABEL(line);
+                ADD_LABEL(ary_match_failed, ary_item_match_failed);
+                ADD_INSN(ary_match_failed, line, pop);
+
+                CHECK(iseq_compile_pattern_match(iseq, ret, args->nd_head, ary_item_match_failed, in_alt_pattern, FALSE));
+                args = args->nd_next;
+            }
+            ADD_INSNL(ret, line, jump, ary_matched);
+            ADD_SEQ(ret, ary_match_failed);
             ADD_INSN(ret, line, dup);
-            ADD_INSN1(ret, line, putobject, INT2FIX(i));
-            ADD_SEND(ret, line, idAREF, INT2FIX(1));
-            CHECK(iseq_compile_pattern_match(iseq, ret, args->nd_head, match_failed, in_alt_pattern, FALSE));
-            args = args->nd_next;
+            ADD_INSNL(ret, line, jump, match_failed);
+            ADD_LABEL(ret, ary_matched);
         }
 
         if (apinfo->rest_arg) {
@@ -6016,16 +6029,25 @@ iseq_compile_pattern_each(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *c
         }
 
         args = apinfo->post_args;
-        for (i = 0; i < post_args_num; i++) {
-            ADD_INSN(ret, line, dup);
+        ADD_INSN(ret, line, dup);
+        ADD_INSN2(ret, line, expandarray, INT2FIX(post_args_num), INT2FIX(0x2));
+        {
+            LABEL *ary_matched = NEW_LABEL(line);
+            DECL_ANCHOR(ary_match_failed);
+            INIT_ANCHOR(ary_match_failed);
+            for (i = 0; i < post_args_num; i++) {
+                LABEL *ary_item_match_failed = NEW_LABEL(line);
+                ADD_LABEL(ary_match_failed, ary_item_match_failed);
+                ADD_INSN(ary_match_failed, line, pop);
 
-            ADD_INSN1(ret, line, putobject, INT2FIX(pre_args_num + i));
-            ADD_INSN1(ret, line, topn, INT2FIX(3));
-            ADD_SEND(ret, line, idPLUS, INT2FIX(1));
-
-            ADD_SEND(ret, line, idAREF, INT2FIX(1));
-            CHECK(iseq_compile_pattern_match(iseq, ret, args->nd_head, match_failed, in_alt_pattern, FALSE));
-            args = args->nd_next;
+                CHECK(iseq_compile_pattern_match(iseq, ret, args->nd_head, ary_item_match_failed, in_alt_pattern, FALSE));
+                args = args->nd_next;
+            }
+            ADD_INSNL(ret, line, jump, ary_matched);
+            ADD_SEQ(ret, ary_match_failed);
+            ADD_INSN(ret, line, putnil);
+            ADD_INSNL(ret, line, jump, match_failed);
+            ADD_LABEL(ret, ary_matched);
         }
 
         ADD_INSN(ret, line, pop);
