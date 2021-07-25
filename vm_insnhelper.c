@@ -5261,6 +5261,15 @@ vm_deconstruct_keys(VALUE recv, VALUE keys) {
     return rb_funcallv(recv, rb_intern("deconstruct_keys"), 1, &keys);
 }
 
+static VALUE
+vm_opt_key_p(VALUE recv, VALUE key)
+{
+    if (!SPECIAL_CONST_P(recv) && RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_KEY_P, HASH_REDEFINED_OP_FLAG)) {
+        return rb_hash_has_key(recv, key);
+    }
+    return Qundef;
+}
+
 rb_event_flag_t rb_iseq_event_flags(const rb_iseq_t *iseq, size_t pos);
 
 NOINLINE(static void vm_trace(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp));

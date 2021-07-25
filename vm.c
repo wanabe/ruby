@@ -1928,6 +1928,7 @@ vm_init_redefined_flag(void)
     OP(Or, OR), (C(Integer));
     OP(NilP, NIL_P), (C(NilClass));
     OP(Deconstruct_keys, DECONSTRUCT_KEYS), (C(Hash));
+    OP(KeyP, KEY_P), (C(Hash));
 #undef C
 #undef OP
 }

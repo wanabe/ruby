@@ -1432,6 +1432,20 @@ deconstruct_keys
     val = vm_deconstruct_keys(recv, keys);
 }
 
+/* optimized key? */
+DEFINE_INSN
+opt_key_p
+(CALL_DATA cd)
+(VALUE recv, VALUE key)
+(VALUE val)
+{
+    val = vm_opt_key_p(recv, key);
+
+    if (val == Qundef) {
+        CALL_SIMPLE_METHOD();
+    }
+}
+
 /* call native compiled method */
 DEFINE_INSN_IF(SUPPORT_CALL_C_FUNCTION)
 opt_call_c_function

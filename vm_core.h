@@ -539,6 +539,7 @@ enum ruby_basic_operators {
     BOP_AND,
     BOP_OR,
     BOP_DECONSTRUCT_KEYS,
+    BOP_KEY_P,
 
     BOP_LAST_
 };
