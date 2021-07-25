@@ -6325,10 +6325,10 @@ iseq_compile_pattern_each(rb_iseq_t *iseq, LINK_ANCHOR *const ret, const NODE *c
             ADD_INSN(ret, line, putnil);
         }
         else {
-            ADD_INSN1(ret, line, duparray, keys);
+            ADD_INSN1(ret, line, putobject, keys);
             RB_OBJ_WRITTEN(iseq, Qundef, rb_obj_hide(keys));
         }
-        ADD_SEND(ret, line, rb_intern("deconstruct_keys"), INT2FIX(1));
+        ADD_INSN(ret, line, deconstruct_keys);
 
         ADD_INSN(ret, line, dup);
         ADD_INSN1(ret, line, checktype, INT2FIX(T_HASH));

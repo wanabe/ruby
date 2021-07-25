@@ -5250,6 +5250,17 @@ vm_opt_regexpmatch2(VALUE recv, VALUE obj)
     }
 }
 
+static VALUE
+vm_deconstruct_keys(VALUE recv, VALUE keys) {
+    if (!SPECIAL_CONST_P(recv) && RBASIC_CLASS(recv) == rb_cHash && BASIC_OP_UNREDEFINED_P(BOP_DECONSTRUCT_KEYS, HASH_REDEFINED_OP_FLAG)) {
+        return recv;
+    }
+    if (RB_BUILTIN_TYPE(keys) == T_ARRAY) {
+        keys = rb_ary_resurrect(keys);
+    }
+    return rb_funcallv(recv, rb_intern("deconstruct_keys"), 1, &keys);
+}
+
 rb_event_flag_t rb_iseq_event_flags(const rb_iseq_t *iseq, size_t pos);
 
 NOINLINE(static void vm_trace(rb_execution_context_t *ec, rb_control_frame_t *reg_cfp));

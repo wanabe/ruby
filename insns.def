@@ -1422,6 +1422,16 @@ opt_regexpmatch2
     }
 }
 
+/* deconstruct_keys */
+DEFINE_INSN
+deconstruct_keys
+()
+(VALUE recv, VALUE keys)
+(VALUE val)
+{
+    val = vm_deconstruct_keys(recv, keys);
+}
+
 /* call native compiled method */
 DEFINE_INSN_IF(SUPPORT_CALL_C_FUNCTION)
 opt_call_c_function
