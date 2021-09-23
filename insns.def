@@ -824,29 +824,49 @@ opt_str_uminus
 
 DEFINE_INSN
 opt_newarray_max
-(rb_num_t num)
+(CALL_DATA cd, rb_num_t num)
 (...)
 (VALUE val)
 /* This instruction typically has no funcalls.  But it compares array
  * contents each other by nature.  That part could call methods when
  * necessary.  No way to detect such method calls beforehand.  We
  * cannot but mark it being not leaf. */
-// attr bool leaf = false; /* has rb_funcall() */
-// attr rb_snum_t sp_inc = 1 - (rb_snum_t)num;
 {
     val = vm_opt_newarray_max(num, STACK_ADDR_FROM_TOP(num));
+
+    if (val == Qundef) {
+        VALUE bh = VM_BLOCK_HANDLER_NONE;
+        POPN(num);
+        PUSH(rb_ec_ary_new_from_values(ec, num, GET_SP()));
+        val = vm_sendish(ec, GET_CFP(), cd, bh, mexp_search_method);
+
+        if (val == Qundef) {
+            RESTORE_REGS();
+            NEXT_INSN();
+        }
+    }
 }
 
 DEFINE_INSN
 opt_newarray_min
-(rb_num_t num)
+(CALL_DATA cd, rb_num_t num)
 (...)
 (VALUE val)
 /* Same discussion as opt_newarray_max. */
-// attr bool leaf = false; /* has rb_funcall() */
-// attr rb_snum_t sp_inc = 1 - (rb_snum_t)num;
 {
     val = vm_opt_newarray_min(num, STACK_ADDR_FROM_TOP(num));
+
+    if (val == Qundef) {
+        VALUE bh = VM_BLOCK_HANDLER_NONE;
+        POPN(num);
+        PUSH(rb_ec_ary_new_from_values(ec, num, GET_SP()));
+        val = vm_sendish(ec, GET_CFP(), cd, bh, mexp_search_method);
+
+        if (val == Qundef) {
+            RESTORE_REGS();
+            NEXT_INSN();
+        }
+    }
 }
 
 /* super(args) # args.size => num */

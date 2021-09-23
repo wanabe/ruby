@@ -3464,15 +3464,22 @@ iseq_specialized_instruction(rb_iseq_t *iseq, INSN *iobj)
 	 */
 	INSN *niobj = (INSN *)iobj->link.next;
 	if (IS_INSN_ID(niobj, send)) {
+            VALUE num = OPERAND_AT(iobj, 0);
             const struct rb_callinfo *ci = (struct rb_callinfo *)OPERAND_AT(niobj, 0);
             if ((vm_ci_flag(ci) & VM_CALL_ARGS_SIMPLE) && vm_ci_argc(ci) == 0) {
 		switch (vm_ci_mid(ci)) {
 		  case idMax:
 		    iobj->insn_id = BIN(opt_newarray_max);
+                    iobj->operand_size = 2;
+                    iobj->operands = niobj->operands;
+                    iobj->operands[1] = num;
 		    ELEM_REMOVE(&niobj->link);
 		    return COMPILE_OK;
 		  case idMin:
 		    iobj->insn_id = BIN(opt_newarray_min);
+                    iobj->operand_size = 2;
+                    iobj->operands = niobj->operands;
+                    iobj->operands[1] = num;
 		    ELEM_REMOVE(&niobj->link);
 		    return COMPILE_OK;
 		}
