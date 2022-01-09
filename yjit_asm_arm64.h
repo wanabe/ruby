@@ -1,3 +1,7 @@
+#include <stdint.h>
+#include <stddef.h>
+#include <stdbool.h>
+
 enum OpndType
 {
     OPND_NONE,
