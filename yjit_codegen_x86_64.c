@@ -4492,16 +4492,6 @@ gen_opt_invokebuiltin_delegate(jitstate_t *jit, ctx_t *ctx, codeblock_t *cb)
 }
 
 static void
-yjit_reg_op(int opcode, codegen_fn gen_fn)
-{
-    RUBY_ASSERT(opcode >= 0 && opcode < VM_INSTRUCTION_SIZE);
-    // Check that the op wasn't previously registered
-    RUBY_ASSERT(gen_fns[opcode] == NULL);
-
-    gen_fns[opcode] = gen_fn;
-}
-
-static void
 reg_supported_opcodes() {
     // Map YARV opcodes to the corresponding codegen functions
     yjit_reg_op(BIN(nop), gen_nop);

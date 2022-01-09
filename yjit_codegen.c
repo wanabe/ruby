@@ -491,6 +491,16 @@ invalidate_all_blocks_for_tracing(const rb_iseq_t *iseq)
 #endif
 }
 
+static void
+yjit_reg_op(int opcode, codegen_fn gen_fn)
+{
+    RUBY_ASSERT(opcode >= 0 && opcode < VM_INSTRUCTION_SIZE);
+    // Check that the op wasn't previously registered
+    RUBY_ASSERT(gen_fns[opcode] == NULL);
+
+    gen_fns[opcode] = gen_fn;
+}
+
 static void reg_supported_opcodes();
 static void reg_supported_methods();
 static uint8_t *yjit_gen_leave_exit(codeblock_t *cb);
