@@ -165,6 +165,19 @@ void cb_set_pos(codeblock_t *cb, uint32_t pos)
     cb->write_pos = pos;
 }
 
+// Align the current write position to a multiple of bytes
+void cb_align_pos(codeblock_t *cb, uint32_t multiple)
+{
+    // Compute the pointer modulo the given alignment boundary
+    uint8_t *ptr = cb_get_write_ptr(cb);
+    uint8_t *aligned_ptr = align_ptr(ptr, multiple);
+    const uint32_t write_pos = cb->write_pos;
+
+    // Pad the pointer by the necessary amount to align it
+    ptrdiff_t pad = aligned_ptr - ptr;
+    cb_set_pos(cb, write_pos + (int32_t)pad);
+}
+
 // Set the current write position from a pointer
 void cb_set_write_ptr(codeblock_t *cb, uint8_t *code_ptr)
 {

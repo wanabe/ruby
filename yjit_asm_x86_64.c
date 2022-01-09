@@ -103,19 +103,6 @@ x86opnd_t const_ptr_opnd(const void *ptr)
     return opnd;
 }
 
-// Align the current write position to a multiple of bytes
-void cb_align_pos(codeblock_t *cb, uint32_t multiple)
-{
-    // Compute the pointer modulo the given alignment boundary
-    uint8_t *ptr = cb_get_write_ptr(cb);
-    uint8_t *aligned_ptr = align_ptr(ptr, multiple);
-    const uint32_t write_pos = cb->write_pos;
-
-    // Pad the pointer by the necessary amount to align it
-    ptrdiff_t pad = aligned_ptr - ptr;
-    cb_set_pos(cb, write_pos + (int32_t)pad);
-}
-
 // Write a byte at the current position
 void cb_write_byte(codeblock_t *cb, uint8_t byte)
 {
