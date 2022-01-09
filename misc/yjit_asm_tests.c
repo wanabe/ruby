@@ -75,6 +75,15 @@ void check_bytes(codeblock_t* cb, const char* bytes)
     }
 }
 
+void assert_equal(int expected, int actual)
+{
+    if (expected != actual) {
+        fprintf(stderr, "expected %d, got %d\n", expected, actual);
+        exit(-1);
+    }
+}
+
+#if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
 void run_assembler_tests(void)
 {
     printf("Running assembler tests\n");
@@ -380,14 +389,6 @@ void run_assembler_tests(void)
     printf("Assembler tests done\n");
 }
 
-void assert_equal(int expected, int actual)
-{
-    if (expected != actual) {
-        fprintf(stderr, "expected %d, got %d\n", expected, actual);
-        exit(-1);
-    }
-}
-
 void run_runtime_tests(void)
 {
     printf("Running runtime tests\n");
@@ -433,6 +434,15 @@ void run_runtime_tests(void)
 
     printf("Runtime tests done\n");
 }
+#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+void run_assembler_tests(void)
+{
+}
+
+void run_runtime_tests(void)
+{
+}
+#endif
 
 int main(int argc, char** argv)
 {
