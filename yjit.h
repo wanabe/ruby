@@ -15,11 +15,21 @@
 # define YJIT_STATS RUBY_DEBUG
 #endif
 
+#define YJIT_ARCH_NONE 0
+#define YJIT_ARCH_X86_64 1
+
+#ifndef YJIT_TARGET_ARCH
 // We generate x86 assembly
-#if (defined(__x86_64__) && !defined(_WIN32)) || (defined(_WIN32) && defined(_M_AMD64)) // x64 platforms without mingw/msys
+# if (defined(__x86_64__) && !defined(_WIN32)) || (defined(_WIN32) && defined(_M_AMD64)) // x64 platforms without mingw/msys
+#  define YJIT_TARGET_ARCH YJIT_ARCH_X86_64
+# endif
+#endif
+
+#ifdef YJIT_TARGET_ARCH
 # define YJIT_SUPPORTED_P 1
 #else
 # define YJIT_SUPPORTED_P 0
+# define YJIT_TARGET_ARCH YJIT_ARCH_NONE
 #endif
 
 struct rb_yjit_options {

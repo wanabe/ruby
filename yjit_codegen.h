@@ -18,6 +18,11 @@ static block_t *gen_single_block(blockid_t blockid, const ctx_t *start_ctx, rb_e
 
 static void gen_code_for_exit_from_stub(void);
 
+static void gen_call_branch_stub_hit(branch_t *branch, uint32_t target_idx);
+
+static void gen_jump_branch(codeblock_t *cb, uint8_t *target0, uint8_t *target1, uint8_t shape);
+static inline void gen_jump_ptr(codeblock_t *cb, uint8_t *target);
+
 static void yjit_init_codegen(void);
 
 #endif // #ifndef YJIT_CODEGEN_H

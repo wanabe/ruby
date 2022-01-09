@@ -16,7 +16,7 @@ static uint8_t *code_for_exit_from_stub = NULL;
 /*
 Get an operand for the adjusted stack pointer address
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_sp_opnd(ctx_t *ctx, int32_t offset_bytes)
 {
     int32_t offset = (ctx->sp_offset * sizeof(VALUE)) + offset_bytes;
@@ -27,7 +27,7 @@ ctx_sp_opnd(ctx_t *ctx, int32_t offset_bytes)
 Push one new value on the temp stack with an explicit mapping
 Return a pointer to the new stack top
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_push_mapping(ctx_t *ctx, temp_type_mapping_t mapping)
 {
     // If type propagation is disabled, store no types
@@ -58,7 +58,7 @@ ctx_stack_push_mapping(ctx_t *ctx, temp_type_mapping_t mapping)
 Push one new value on the temp stack
 Return a pointer to the new stack top
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_push(ctx_t *ctx, val_type_t type)
 {
     temp_type_mapping_t mapping = { MAP_STACK, type };
@@ -68,7 +68,7 @@ ctx_stack_push(ctx_t *ctx, val_type_t type)
 /*
 Push the self value on the stack
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_push_self(ctx_t *ctx)
 {
     temp_type_mapping_t mapping = { MAP_SELF, TYPE_UNKNOWN };
@@ -78,7 +78,7 @@ ctx_stack_push_self(ctx_t *ctx)
 /*
 Push a local variable on the stack
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_push_local(ctx_t *ctx, size_t local_idx)
 {
     if (local_idx >= MAX_LOCAL_TYPES) {
@@ -97,14 +97,14 @@ ctx_stack_push_local(ctx_t *ctx, size_t local_idx)
 Pop N values off the stack
 Return a pointer to the stack top before the pop operation
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_pop(ctx_t *ctx, size_t n)
 {
     RUBY_ASSERT(n <= ctx->stack_size);
 
     // SP points just above the topmost value
     int32_t offset = (ctx->sp_offset - 1) * sizeof(VALUE);
-    x86opnd_t top = mem_opnd(64, REG_SP, offset);
+    yjit_opnd_t top = mem_opnd(64, REG_SP, offset);
 
     // Clear the types of the popped values
     for (size_t i = 0; i < n; ++i)
@@ -125,12 +125,12 @@ ctx_stack_pop(ctx_t *ctx, size_t n)
 /**
 Get an operand pointing to a slot on the temp stack
 */
-static x86opnd_t
+static yjit_opnd_t
 ctx_stack_opnd(ctx_t *ctx, int32_t idx)
 {
     // SP points just above the topmost value
     int32_t offset = (ctx->sp_offset - 1 - idx) * sizeof(VALUE);
-    x86opnd_t opnd = mem_opnd(64, REG_SP, offset);
+    yjit_opnd_t opnd = mem_opnd(64, REG_SP, offset);
 
     return opnd;
 }
@@ -1016,15 +1016,7 @@ get_branch_target(
     // Generate an outlined stub that will call branch_stub_hit()
     uint8_t *stub_addr = cb_get_ptr(ocb, ocb->write_pos);
 
-    // Call branch_stub_hit(branch_idx, target_idx, ec)
-    mov(ocb, C_ARG_REGS[2], REG_EC);
-    mov(ocb, C_ARG_REGS[1], imm_opnd(target_idx));
-    mov(ocb, C_ARG_REGS[0], const_ptr_opnd(branch));
-    call_ptr(ocb, REG0, (void *)&branch_stub_hit);
-
-    // Jump to the address returned by the
-    // branch_stub_hit call
-    jmp_rm(ocb, RAX);
+    gen_call_branch_stub_hit(branch, target_idx);
 
     RUBY_ASSERT(cb_get_ptr(ocb, ocb->write_pos) - stub_addr <= MAX_CODE_SIZE);
 
@@ -1057,23 +1049,6 @@ gen_branch(
     // Call the branch generation function
     branch->start_addr = cb_get_write_ptr(cb);
     regenerate_branch(cb, branch);
-}
-
-static void
-gen_jump_branch(codeblock_t *cb, uint8_t *target0, uint8_t *target1, uint8_t shape)
-{
-    switch (shape) {
-      case SHAPE_NEXT0:
-        break;
-
-      case SHAPE_NEXT1:
-        RUBY_ASSERT(false);
-        break;
-
-      case SHAPE_DEFAULT:
-        jmp_ptr(cb, target0);
-        break;
-    }
 }
 
 static void
@@ -1265,7 +1240,7 @@ invalidate_block_version(block_t *block)
             // Patch in a jump to block->entry_exit.
             uint32_t cur_pos = cb->write_pos;
             cb_set_write_ptr(cb, block->start_addr);
-            jmp_ptr(cb, block->entry_exit);
+            gen_jump_ptr(cb, block->entry_exit);
             RUBY_ASSERT_ALWAYS(cb_get_ptr(cb, cb->write_pos) < block->end_addr && "invalidation wrote past end of block");
             cb_set_pos(cb, cur_pos);
         }
