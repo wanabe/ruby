@@ -75,15 +75,39 @@ void check_bytes(codeblock_t* cb, const char* bytes)
     }
 }
 
-void assert_equal(int expected, int actual)
+void check_uint32(codeblock_t* cb, uint32_t n)
 {
-    if (expected != actual) {
-        fprintf(stderr, "expected %d, got %d\n", expected, actual);
+    printf("checking encoding: 0x%08X\n", n);
+
+    if (cb->write_pos != 4)
+    {
+        fprintf(stderr, "incorrect encoding length, expected 4, got %d\n",
+            cb->write_pos
+        );
+        printf("0x%08X\n", n);
+        print_bytes(cb);
+        exit(-1);
+    }
+
+    uint32_t cb_n = 0;
+    for (uint32_t i = 0; i < 4; ++i)
+    {
+        uint8_t cb_byte = *cb_get_ptr(cb, i);
+        cb_n = cb_n | (cb_byte << 8 * i);
+    }
+
+    if (cb_n != n)
+    {
+        fprintf(stderr, "incorrect encoding, expected 0x%08X, got 0x%08X\n",
+            n,
+            cb_n
+        );
+        printf("0x%08X\n", n);
+        print_bytes(cb);
         exit(-1);
     }
 }
 
-#if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
 void run_assembler_tests(void)
 {
     printf("Running assembler tests\n");
@@ -93,6 +117,7 @@ void run_assembler_tests(void)
     uint8_t* mem_block = alloc_exec_mem(4096);
     cb_init(cb, mem_block, 4096);
 
+#if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
     // add
     cb_set_pos(cb, 0); add(cb, CL, imm_opnd(3)); check_bytes(cb, "80C103");
     cb_set_pos(cb, 0); add(cb, CL, BL); check_bytes(cb, "00D9");
@@ -386,7 +411,18 @@ void run_assembler_tests(void)
     // xor
     cb_set_pos(cb, 0); xor(cb, EAX, EAX); check_bytes(cb, "31C0");
 
+#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+#endif
+
     printf("Assembler tests done\n");
+}
+
+void assert_equal(int expected, int actual)
+{
+    if (expected != actual) {
+        fprintf(stderr, "expected %d, got %d\n", expected, actual);
+        exit(-1);
+    }
 }
 
 void run_runtime_tests(void)
@@ -404,6 +440,7 @@ void run_runtime_tests(void)
 
     #define TEST(BODY) cb_set_pos(cb, 0); BODY ret(cb); cb_mark_all_executable(cb); assert_equal(7, function());
 
+#if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
     // add
     TEST({ mov(cb, RAX, imm_opnd(0)); add(cb, RAX, imm_opnd(7)); })
     TEST({ mov(cb, RAX, imm_opnd(0)); mov(cb, RCX, imm_opnd(7)); add(cb, RAX, RCX); })
@@ -430,19 +467,13 @@ void run_runtime_tests(void)
     TEST({ mov(cb, RAX, imm_opnd(13)); xor(cb, RAX, imm_opnd(10)); })
     TEST({ mov(cb, RAX, imm_opnd(13)); mov(cb, RCX, imm_opnd(10)); xor(cb, RAX, RCX); })
 
+#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+#endif
+
     #undef TEST
 
     printf("Runtime tests done\n");
 }
-#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
-void run_assembler_tests(void)
-{
-}
-
-void run_runtime_tests(void)
-{
-}
-#endif
 
 int main(int argc, char** argv)
 {
