@@ -200,4 +200,6 @@ void cb_mark_all_executable(codeblock_t * cb)
 
 #if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
 # include "yjit_asm_x86_64.c"
+#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+# include "yjit_asm_arm64.c"
 #endif

@@ -523,4 +523,6 @@ yjit_init_codegen(void)
 
 #if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
 # include "yjit_codegen_x86_64.c"
+#elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+# include "yjit_codegen_arm64.c"
 #endif
