@@ -19,7 +19,6 @@
 #endif
 
 #include "yjit_asm.h"
-#include "yjit.h"
 
 x86opnd_t mem_opnd(uint32_t num_bits, x86opnd_t base_reg, int32_t disp)
 {

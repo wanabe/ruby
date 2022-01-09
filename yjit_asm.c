@@ -18,8 +18,8 @@
 #include <sys/mman.h>
 #endif
 
+#include "yjit_arch.h"
 #include "yjit_asm.h"
-#include "yjit.h"
 
 // Compute the number of bits needed to encode a signed value
 uint32_t sig_imm_size(int64_t imm)
