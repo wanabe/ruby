@@ -18,8 +18,8 @@
 #include <sys/mman.h>
 #endif
 
+#include "yjit_arch.h"
 #include "yjit_asm.h"
-#include "yjit.h"
 
 arm64opnd_t mem_opnd(uint32_t num_bits, arm64opnd_t base_reg, int32_t disp)
 {
