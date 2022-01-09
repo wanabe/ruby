@@ -21,34 +21,6 @@
 #include "yjit_asm.h"
 #include "yjit.h"
 
-// Compute the number of bits needed to encode a signed value
-uint32_t sig_imm_size(int64_t imm)
-{
-    // Compute the smallest size this immediate fits in
-    if (imm >= INT8_MIN && imm <= INT8_MAX)
-        return 8;
-    if (imm >= INT16_MIN && imm <= INT16_MAX)
-        return 16;
-    if (imm >= INT32_MIN && imm <= INT32_MAX)
-        return 32;
-
-    return 64;
-}
-
-// Compute the number of bits needed to encode an unsigned value
-uint32_t unsig_imm_size(uint64_t imm)
-{
-    // Compute the smallest size this immediate fits in
-    if (imm <= UINT8_MAX)
-        return 8;
-    else if (imm <= UINT16_MAX)
-        return 16;
-    else if (imm <= UINT32_MAX)
-        return 32;
-
-    return 64;
-}
-
 x86opnd_t mem_opnd(uint32_t num_bits, x86opnd_t base_reg, int32_t disp)
 {
     bool is_iprel = base_reg.as.reg.reg_type == REG_IP;
