@@ -203,6 +203,35 @@ uint8_t *cb_get_write_ptr(const codeblock_t *cb)
     return cb_get_ptr(cb, cb->write_pos);
 }
 
+// Write a byte at the current position
+void cb_write_byte(codeblock_t *cb, uint8_t byte)
+{
+    assert (cb->mem_block_);
+    if (cb->write_pos < cb->mem_size) {
+        cb_mark_position_writeable(cb, cb->write_pos);
+        cb->mem_block_[cb->write_pos] = byte;
+        cb->write_pos++;
+    }
+    else {
+        cb->dropped_bytes = true;
+    }
+}
+
+// Write multiple bytes starting from the current position
+void cb_write_bytes(codeblock_t *cb, uint32_t num_bytes, ...)
+{
+    va_list va;
+    va_start(va, num_bytes);
+
+    for (uint32_t i = 0; i < num_bytes; ++i)
+    {
+        uint8_t byte = va_arg(va, int);
+        cb_write_byte(cb, byte);
+    }
+
+    va_end(va);
+}
+
 void cb_mark_all_writeable(codeblock_t * cb)
 {
     if (mprotect(cb->mem_block_, cb->mem_size, PROT_READ | PROT_WRITE)) {

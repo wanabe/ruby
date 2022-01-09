@@ -102,35 +102,6 @@ x86opnd_t const_ptr_opnd(const void *ptr)
     return opnd;
 }
 
-// Write a byte at the current position
-void cb_write_byte(codeblock_t *cb, uint8_t byte)
-{
-    assert (cb->mem_block_);
-    if (cb->write_pos < cb->mem_size) {
-        cb_mark_position_writeable(cb, cb->write_pos);
-        cb->mem_block_[cb->write_pos] = byte;
-        cb->write_pos++;
-    }
-    else {
-        cb->dropped_bytes = true;
-    }
-}
-
-// Write multiple bytes starting from the current position
-void cb_write_bytes(codeblock_t *cb, uint32_t num_bytes, ...)
-{
-    va_list va;
-    va_start(va, num_bytes);
-
-    for (uint32_t i = 0; i < num_bytes; ++i)
-    {
-        uint8_t byte = va_arg(va, int);
-        cb_write_byte(cb, byte);
-    }
-
-    va_end(va);
-}
-
 // Write a signed integer over a given number of bits at the current position
 void cb_write_int(codeblock_t *cb, uint64_t val, uint32_t num_bits)
 {
