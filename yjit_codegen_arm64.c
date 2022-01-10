@@ -42,8 +42,36 @@ gen_jump_ptr(codeblock_t *cb, uint8_t *target)
 static uint32_t
 yjit_gen_exit(VALUE *exit_pc, ctx_t *ctx, codeblock_t *cb)
 {
-    // TODO
-    return 0;
+    const uint32_t code_pos = cb->write_pos;
+
+    ADD_COMMENT(cb, "exit to interpreter");
+
+    // Generate the code to exit to the interpreters
+    // Write the adjusted SP back into the CFP
+    if (ctx->sp_offset != 0) {
+        add(cb, REG_SP, REG_SP, imm_opnd(ctx->sp_offset * sizeof(VALUE)));
+        str(cb, REG_SP, member_opnd(REG_CFP, rb_control_frame_t, sp));
+    }
+
+    // Update CFP->PC
+    mov_uint64(cb, X0, (uint64_t)exit_pc);
+    str(cb, X0, member_opnd(REG_CFP, rb_control_frame_t, pc));
+
+    // Accumulate stats about interpreter exits
+#if YJIT_STATS
+    if (rb_yjit_opts.gen_stats) {
+        mov(cb, RDI, const_ptr_opnd(exit_pc));
+        call_ptr(cb, RSI, (void *)&yjit_count_side_exit_op);
+    }
+#endif
+
+    ldp(cb, REG_EC, REG_SP, mem_post_opnd(64, SP, 16));
+    ldp(cb, X30, REG_CFP, mem_post_opnd(64, SP, 16));
+
+    mov_uint64(cb, X0, Qundef);
+    ret(cb, X30);
+
+    return code_pos;
 }
 
 // Generate a continuation for gen_leave() that exits to the interpreter at REG_CFP->pc.
@@ -58,7 +86,10 @@ yjit_gen_leave_exit(codeblock_t *cb)
     // Every exit to the interpreter should be counted
     GEN_COUNTER_INC(cb, leave_interp_return);
 
-    // TODO
+    ldp(cb, REG_EC, REG_SP, mem_post_opnd(64, SP, 16));
+    ldp(cb, X30, REG_CFP, mem_post_opnd(64, SP, 16));
+
+    ret(cb, X30);
 
     return code_ptr;
 }
@@ -102,13 +133,71 @@ yjit_entry_prologue(codeblock_t *cb, const rb_iseq_t *iseq)
 
     enum { MAX_PROLOGUE_SIZE = 1024 };
 
-    // TODO
-    return NULL;
+    // Check if we have enough executable memory
+    if (cb->write_pos + MAX_PROLOGUE_SIZE >= cb->mem_size) {
+        return NULL;
+    }
+
+    const uint32_t old_write_pos = cb->write_pos;
+
+    // Align the current write position to cache line boundaries
+    cb_align_pos(cb, 64);
+
+    uint8_t *code_ptr = cb_get_ptr(cb, cb->write_pos);
+    ADD_COMMENT(cb, "yjit entry");
+
+    stp(cb, X30, REG_CFP, mem_pre_opnd(64, SP, -16));
+    stp(cb, REG_EC, REG_SP, mem_pre_opnd(64, SP, -16));
+
+    // We are passed EC and CFP
+    mov(cb, REG_EC, X0);
+    mov(cb, REG_CFP, X1);
+
+    // Load the current SP from the CFP into REG_SP
+    ldr(cb, REG_SP, member_opnd(REG_CFP, rb_control_frame_t, sp));
+
+    // Setup cfp->jit_return
+    // TODO: this could use an IP relative LEA instead of an 8 byte immediate
+    mov_uint64(cb, REG0, (uint64_t)leave_exit_code);
+    str(cb, REG0, member_opnd(REG_CFP, rb_control_frame_t, jit_return));
+
+    // Verify MAX_PROLOGUE_SIZE
+    RUBY_ASSERT_ALWAYS(cb->write_pos - old_write_pos <= MAX_PROLOGUE_SIZE);
+
+    return code_ptr;
 }
 
+// Push a constant value to the stack, including type information.
+// The constant may be a heap object or a special constant.
+static void
+jit_putobject(jitstate_t *jit, ctx_t *ctx, VALUE arg)
+{
+    val_type_t val_type = yjit_type_of_value(arg);
+    arm64opnd_t stack_top = ctx_stack_push(ctx, val_type);
+
+    if (SPECIAL_CONST_P(arg)) {
+        // Immediates will not move and do not need to be tracked for GC
+        // Thanks to this we can mov directly to memory when possible.
+
+        mov_uint64(cb, REG0, arg);
+        str(cb, REG0, stack_top);
+    }
+    else {
+        // TODO
+        rb_bug("unimplemented: jit_putobject for not SPECIAL_CONST");
+    }
+}
+
+static codegen_status_t
+gen_putnil(jitstate_t *jit, ctx_t *ctx, codeblock_t *cb)
+{
+    jit_putobject(jit, ctx, Qnil);
+    return YJIT_KEEP_COMPILING;
+}
 
 static void
 reg_supported_opcodes() {
+    yjit_reg_op(BIN(putnil), gen_putnil);
 }
 
 static void

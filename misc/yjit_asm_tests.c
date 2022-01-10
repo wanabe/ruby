@@ -412,6 +412,42 @@ void run_assembler_tests(void)
     cb_set_pos(cb, 0); xor(cb, EAX, EAX); check_bytes(cb, "31C0");
 
 #elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
+    // ldp
+    cb_set_pos(cb, 0); ldp(cb, X29, X30, mem_opnd(     64, SP,  16)); check_uint32(cb, 0xa9417bfd);
+    cb_set_pos(cb, 0); ldp(cb, X29, X30, mem_pre_opnd( 64, SP,  16)); check_uint32(cb, 0xa9c17bfd);
+    cb_set_pos(cb, 0); ldp(cb, X29, X30, mem_post_opnd(64, SP,  16)); check_uint32(cb, 0xa8c17bfd);
+    cb_set_pos(cb, 0); ldp(cb, X29, X30, mem_opnd(     64, SP, -16)); check_uint32(cb, 0xa97f7bfd);
+
+    // stp
+    cb_set_pos(cb, 0); stp(cb, X29, X30, mem_opnd(     64, SP, -16)); check_uint32(cb, 0xa93f7bfd);
+    cb_set_pos(cb, 0); stp(cb, X29, X30, mem_pre_opnd( 64, SP, -16)); check_uint32(cb, 0xa9bf7bfd);
+    cb_set_pos(cb, 0); stp(cb, X29, X30, mem_post_opnd(64, SP, -16)); check_uint32(cb, 0xa8bf7bfd);
+    cb_set_pos(cb, 0); stp(cb, X29, X30, mem_opnd(     64, SP,  16)); check_uint32(cb, 0xa9017bfd);
+
+    // mov
+    cb_set_pos(cb, 0); mov(cb, X0, X1); check_uint32(cb, 0xaa0103e0);
+
+    // ldr
+    cb_set_pos(cb, 0); ldr(cb, X0, mem_opnd(64, X1, 8)); check_uint32(cb, 0xf9400420);
+
+    // str
+    cb_set_pos(cb, 0); str(cb, X0, mem_opnd(64, X1, 8)); check_uint32(cb, 0xf9000420);
+
+    // movz
+    cb_set_pos(cb, 0); movz(cb, X0, imm_opnd(0xcdef)); check_uint32(cb, 0xd299bde0);
+
+    // movk
+    cb_set_pos(cb, 0); movk(cb, X0, imm_shift_opnd(0x89ab, SHIFT_LSL, 16)); check_uint32(cb, 0xf2b13560);
+
+    // ret
+    cb_set_pos(cb, 0); ret(cb, X30); check_uint32(cb, 0xd65f03c0);
+
+    // add
+    cb_set_pos(cb, 0); add(cb, X19, X19, imm_opnd(8)); check_uint32(cb, 0x91002273);
+
+    // helper
+    // mov_uint32
+    cb_set_pos(cb, 0); mov_uint64(cb, X0, 0x123456789abcdef); check_bytes(cb, "E0BD99D26035B1F2E0ACC8F26024E0F2");
 #endif
 
     printf("Assembler tests done\n");
