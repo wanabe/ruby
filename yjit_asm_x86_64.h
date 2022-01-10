@@ -176,13 +176,6 @@ static inline x86opnd_t imm_opnd(int64_t val);
 // Constant pointer operand
 static inline x86opnd_t const_ptr_opnd(const void *ptr);
 
-// Struct member operand
-#define member_opnd(base_reg, struct_type, member_name) mem_opnd( \
-    8 * sizeof(((struct_type*)0)->member_name), \
-    base_reg,                                   \
-    offsetof(struct_type, member_name)          \
-)
-
 // Struct member operand with an array index
 #define member_opnd_idx(base_reg, struct_type, member_name, idx) mem_opnd( \
     8 * sizeof(((struct_type*)0)->member_name[0]),     \

@@ -88,6 +88,13 @@ static inline void cb_mark_all_writeable(codeblock_t *cb);
 static inline void cb_mark_position_writeable(codeblock_t *cb, uint32_t write_pos);
 static inline void cb_mark_all_executable(codeblock_t *cb);
 
+// Struct member operand
+#define member_opnd(base_reg, struct_type, member_name) mem_opnd( \
+    8 * sizeof(((struct_type*)0)->member_name), \
+    base_reg,                                   \
+    offsetof(struct_type, member_name)          \
+)
+
 #if YJIT_TARGET_ARCH == YJIT_ARCH_X86_64
 # include "yjit_asm_x86_64.h"
 #elif YJIT_TARGET_ARCH == YJIT_ARCH_ARM64
