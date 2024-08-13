@@ -153,6 +153,15 @@ macro_rules! c_callable {
         extern "sysv64" fn $f $args $(-> $ret)? $body
     };
 }
+
+#[cfg(target_arch = "riscv64")]
+macro_rules! c_callable {
+    ($(#[$outer:meta])*
+    fn $f:ident $args:tt $(-> $ret:ty)? $body:block) => {
+        $(#[$outer])*
+        extern "C" fn $f $args $(-> $ret)? $body
+    };
+}
 pub(crate) use c_callable;
 
 pub fn print_int(asm: &mut Assembler, opnd: Opnd) {

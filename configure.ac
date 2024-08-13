@@ -3834,6 +3834,7 @@ AS_IF([test "$RUSTC" != "no"],
     AS_CASE(["$target_cpu"],
         [arm64|aarch64], [YJIT_TARGET_ARCH=aarch64],
         [x86_64], [YJIT_TARGET_ARCH=x86_64],
+        [riscv64], [YJIT_TARGET_ARCH=riscv64],
     )
     dnl Fails in case rustc target doesn't match ruby target.
     dnl Can happen on Rosetta, for example.

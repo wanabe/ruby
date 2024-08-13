@@ -18,7 +18,7 @@
 #if USE_YJIT
 
 // We generate x86 or arm64 assembly
-#if defined(_WIN32) ? defined(_M_AMD64) : (defined(__x86_64__) || defined(__aarch64__))
+#if defined(_WIN32) ? defined(_M_AMD64) : (defined(__x86_64__) || defined(__aarch64__) || (defined(__riscv) && __riscv_xlen == 64))
 // x86_64 platforms without mingw/msys or x64-mswin
 #else
 # error YJIT unsupported platform

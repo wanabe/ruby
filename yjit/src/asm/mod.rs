@@ -21,6 +21,8 @@ pub mod x86_64;
 
 pub mod arm64;
 
+pub mod riscv64;
+
 //
 // TODO: need a field_size_of macro, to compute the size of a struct field in bytes
 //

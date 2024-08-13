@@ -269,8 +269,10 @@ rb_yjit_reserve_addr_space(uint32_t mem_size)
 #ifndef _WIN32
     uint8_t *mem_block;
 
+    #if defined(__riscv) && __riscv_xlen == 64
+        mem_block = MAP_FAILED;
     // On Linux
-    #if defined(MAP_FIXED_NOREPLACE) && defined(_SC_PAGESIZE)
+    #elif defined(MAP_FIXED_NOREPLACE) && defined(_SC_PAGESIZE)
         uint32_t const page_size = (uint32_t)sysconf(_SC_PAGESIZE);
         uint8_t *const cfunc_sample_addr = (void *)&rb_yjit_reserve_addr_space;
         uint8_t *const probe_region_end = cfunc_sample_addr + INT32_MAX;
