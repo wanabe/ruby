@@ -116,10 +116,11 @@ class Delegator < BasicObject
     when Object
       target.respond_to?(m, include_private)
     else
-      if KERNEL_RESPOND_TO.bind_call(target, :respond_to?)
+      kernel_respond_to = ::Kernel.instance_method(:respond_to?)
+      if kernel_respond_to.bind_call(target, :respond_to?)
         target.respond_to?(m, include_private)
       else
-        KERNEL_RESPOND_TO.bind_call(target, m, include_private)
+        kernel_respond_to.bind_call(target, m, include_private)
       end
     end
   end
@@ -239,7 +240,7 @@ class Delegator < BasicObject
     super()
   end
 
-  @delegator_api = self.public_instance_methods
+  @delegator_api = Ractor.make_shareable(self.public_instance_methods)
   def self.public_api # :nodoc:
     @delegator_api
   end
@@ -411,33 +412,33 @@ def DelegateClass(superclass, &block)
       @delegate_dc_obj = obj
     end
     protected_instance_methods.each do |method|
-      define_method(method, Delegator.delegating_block(method))
+      define_method(method, Ractor.make_shareable(Delegator.delegating_block(method)))
       protected method
     end
     public_instance_methods.each do |method|
-      define_method(method, Delegator.delegating_block(method))
+      define_method(method, Ractor.make_shareable(Delegator.delegating_block(method)))
     end
-  end
-  klass.define_singleton_method :public_instance_methods do |all=true|
-    super(all) | superclass.public_instance_methods
-  end
-  klass.define_singleton_method :protected_instance_methods do |all=true|
-    super(all) | superclass.protected_instance_methods
-  end
-  klass.define_singleton_method :instance_methods do |all=true|
-    super(all) | superclass.instance_methods
-  end
-  klass.define_singleton_method :public_instance_method do |name|
-    super(name)
-  rescue NameError
-    raise unless self.public_instance_methods.include?(name)
-    superclass.public_instance_method(name)
-  end
-  klass.define_singleton_method :instance_method do |name|
-    super(name)
-  rescue NameError
-    raise unless self.instance_methods.include?(name)
-    superclass.instance_method(name)
+    define_singleton_method :public_instance_methods, Ractor.make_shareable(proc do |all=true|
+      super(all) | superclass.public_instance_methods
+    end)
+    define_singleton_method :protected_instance_methods, Ractor.make_shareable(proc do |all=true|
+      super(all) | superclass.protected_instance_methods
+    end)
+    define_singleton_method :instance_methods, Ractor.make_shareable(proc do |all=true|
+      super(all) | superclass.instance_methods
+    end)
+    define_singleton_method :public_instance_method, Ractor.make_shareable(proc do |name|
+      super(name)
+    rescue NameError
+      raise unless self.public_instance_methods.include?(name)
+      superclass.public_instance_method(name)
+    end)
+    define_singleton_method :instance_method, Ractor.make_shareable(proc do |name|
+      super(name)
+    rescue NameError
+      raise unless self.instance_methods.include?(name)
+      superclass.instance_method(name)
+    end)
   end
   klass.module_eval(&block) if block
   return klass
