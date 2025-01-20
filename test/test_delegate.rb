@@ -312,6 +312,7 @@ class TestDelegateClass < Test::Unit::TestCase
         __dir__
       end
     end
+    Ractor.make_shareable(SD)
     dc = DelegateClass(self)
     dc.class_eval do
       def method_name
@@ -325,7 +326,7 @@ class TestDelegateClass < Test::Unit::TestCase
         __dir__
       end
     end
-    DC = dc.new(new)
+    DC = Ractor.make_shareable(dc.new(new))
   end
 
   def test_method_in_simple_delegator
