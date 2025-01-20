@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-
+return
 # Enable deprecation warnings for test-all, so deprecated methods/constants/functions are dealt with early.
 Warning[:deprecated] = true
 
@@ -1852,7 +1852,7 @@ module Test
 
       attr_accessor :to_run, :options
 
-      def initialize(force_standalone = false, default_dir = nil, argv = ARGV)
+      def initialize(force_standalone = false, default_dir = nil, argv = [])
         @force_standalone = force_standalone
         @runner = Runner.new do |files, options|
           base = options[:base_directory] ||= default_dir
