@@ -23,7 +23,7 @@ module Test
       end
       def assert(val, msg = nil)
         return if val
-        raise msg ? msg : "assert fail: #{val} is falsey"
+        raise msg ? msg.to_s : "assert fail: #{val} is falsey"
       end
       def refute(val, msg = nil)
         assert !val, msg
@@ -31,21 +31,25 @@ module Test
       def assert_equal(l, r, msg = nil)
         assert l == r, msg
       end
+      def assert_not_equal(l, r, msg = nil)
+        assert l != r, msg
+      end
       def assert_raise(klass, msg = nil)
         begin
           yield
         rescue klass => e
+          e
         else
           raise msg ? msg : "assert fail: not raise"
         end
       end
-      def assert_raise_with_message(klass, pat)
+      def assert_raise_with_message(klass, pat, msg = nil)
         begin
           yield
         rescue klass => e
-          raise "assert fail: #{e.message} !~ #{pat}" if e.message !~ pat
+          raise msg || "assert fail: #{e.message} !~ #{pat}" if e.message !~ pat
         else
-          raise "assert fail: not raise"
+          raise msg || "assert fail: not raise"
         end
       end
       def assert_instance_of(klass, obj)
@@ -59,6 +63,15 @@ module Test
       end
       def assert_not_operator(l, op, r)
         assert !l.__send__(op, r)
+      end
+      def assert_same(l, r, msg = nil)
+        assert l.equal?(r), msg
+      end
+      def assert_not_match(pat, obj, msg = nil)
+        assert obj !~ pat, msg
+      end
+      def assert_warn(pat, &)
+        assert EnvUtil.verbose_warning(&) =~ pat
       end
     end
   end
