@@ -4,9 +4,9 @@ require 'forwardable'
 
 class TestForwardable < Test::Unit::TestCase
   INTEGER = 42
-  RECEIVER = BasicObject.new
-  RETURNED1 = BasicObject.new
-  RETURNED2 = BasicObject.new
+  RECEIVER = Object.new
+  RETURNED1 = Object.new
+  RETURNED2 = Object.new
 
   class << RECEIVER
     def delegated1
@@ -21,6 +21,10 @@ class TestForwardable < Test::Unit::TestCase
       [RETURNED1, kw]
     end
   end
+
+  Ractor.make_shareable(RECEIVER)
+  Ractor.make_shareable(RETURNED1)
+  Ractor.make_shareable(RETURNED2)
 
   def test_def_instance_delegator
     %i[def_delegator def_instance_delegator].each do |m|
@@ -383,14 +387,15 @@ class TestForwardable < Test::Unit::TestCase
     end
   end
 
+  class SingleForwarableClass
+    extend SingleForwardable
+    @receiver = RECEIVER
+  end
+
   def single_forwardable_class(&block)
-    Class.new do
-      extend SingleForwardable
-
-      @receiver = RECEIVER
-
-      class_exec(&block)
-    end
+    klass = SingleForwarableClass.clone
+    klass.class_exec(&block)
+    klass
   end
 
   def single_forwardable_object(&block)
