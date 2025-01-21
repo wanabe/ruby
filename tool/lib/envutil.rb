@@ -60,6 +60,7 @@ module EnvUtil
             [i, begin Warning[i]; rescue ArgumentError; end]
           end.compact
         end
+      Ractor.make_shareable(@original_warning)
     end
   end
 
