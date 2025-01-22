@@ -4,7 +4,7 @@ require 'test/unit'
 require 'open3'
 
 class TestOpen3 < Test::Unit::TestCase
-  RUBY = EnvUtil.rubybin
+  RUBY = Ractor.make_shareable(EnvUtil.rubybin)
 
   def test_exit_status
     Open3.popen3(RUBY, '-e', 'exit true') {|i,o,e,t|
@@ -33,7 +33,7 @@ class TestOpen3 < Test::Unit::TestCase
   end
 
   def test_stderr
-    Open3.popen3(RUBY, '-e', 'STDERR.print "bar"') {|i,o,e,t|
+    Open3.popen3(RUBY, '-e', '$stderr.print "bar"') {|i,o,e,t|
       assert_equal("bar", e.read)
     }
   end
@@ -84,14 +84,14 @@ class TestOpen3 < Test::Unit::TestCase
 
   def test_numeric_file_descriptor2
     with_pipe {|r, w|
-      Open3.popen2(RUBY, '-e', 'STDERR.puts "foo"', 2 => w) {|i,o,t|
+      Open3.popen2(RUBY, '-e', '$stderr.puts "foo"', 2 => w) {|i,o,t|
         assert_equal("foo\n", r.gets)
       }
     }
   end
 
   def test_numeric_file_descriptor3
-    omit "passing FDs bigger than 2 is not supported on Windows" if /mswin|mingw/ =~ RbConfig::CONFIG['host_os']
+    omit "passing FDs bigger than 2 is not supported on Windows" if /mswin|mingw/ =~ RbConfig::FROZEN_CONFIG['host_os']
     with_pipe {|r, w|
       Open3.popen3(RUBY, '-e', 'IO.open(3).puts "foo"', 3 => w) {|i,o,e,t|
         assert_equal("foo\n", r.gets, "[GH-808] [ruby-core:67347] [Bug #10699]")
@@ -118,13 +118,13 @@ class TestOpen3 < Test::Unit::TestCase
 
   def test_popen2
     with_pipe {|r, w|
-      with_reopen(STDERR, w) {|old|
+      with_reopen($stderr, w) {|old|
         w.close
-        Open3.popen2(RUBY, '-e', 's=STDIN.read; STDOUT.print s+"o"; STDERR.print s+"e"') {|i,o,t|
+        Open3.popen2(RUBY, '-e', 's=STDIN.read; STDOUT.print s+"o"; $stderr.print s+"e"') {|i,o,t|
           assert_kind_of(Thread, t)
           i.print "z"
           i.close
-          STDERR.reopen(old)
+          $stderr.reopen(old)
           assert_equal("zo", o.read)
           assert_equal("ze", r.read)
         }
@@ -134,13 +134,13 @@ class TestOpen3 < Test::Unit::TestCase
 
   def test_popen2e
     with_pipe {|r, w|
-      with_reopen(STDERR, w) {|old|
+      with_reopen($stderr, w) {|old|
         w.close
-        Open3.popen2e(RUBY, '-e', 's=STDIN.read; STDOUT.print s+"o"; STDOUT.flush; STDERR.print s+"e"') {|i,o,t|
+        Open3.popen2e(RUBY, '-e', 's=STDIN.read; STDOUT.print s+"o"; STDOUT.flush; $stderr.print s+"e"') {|i,o,t|
           assert_kind_of(Thread, t)
           i.print "y"
           i.close
-          STDERR.reopen(old)
+          $stderr.reopen(old)
           assert_equal("yoye", o.read)
           assert_equal("", r.read)
         }
@@ -160,7 +160,7 @@ class TestOpen3 < Test::Unit::TestCase
   end
 
   def test_capture3
-    o, e, s = Open3.capture3(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; STDERR.print i+"e"', :stdin_data=>"i")
+    o, e, s = Open3.capture3(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; $stderr.print i+"e"', :stdin_data=>"i")
     assert_equal("io", o)
     assert_equal("ie", e)
     assert(s.success?)
@@ -170,7 +170,7 @@ class TestOpen3 < Test::Unit::TestCase
     IO.pipe {|r, w|
       w.write "i"
       w.close
-      o, e, s = Open3.capture3(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; STDERR.print i+"e"', :stdin_data=>r)
+      o, e, s = Open3.capture3(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; $stderr.print i+"e"', :stdin_data=>r)
       assert_equal("io", o)
       assert_equal("ie", e)
       assert(s.success?)
@@ -178,7 +178,7 @@ class TestOpen3 < Test::Unit::TestCase
   end
 
   def test_capture3_flip
-    o, e, s = Open3.capture3(RUBY, '-e', 'STDOUT.sync=true; 1000.times { print "o"*1000; STDERR.print "e"*1000 }')
+    o, e, s = Open3.capture3(RUBY, '-e', 'STDOUT.sync=true; 1000.times { print "o"*1000; $stderr.print "e"*1000 }')
     assert_equal("o"*1000000, o)
     assert_equal("e"*1000000, e)
     assert(s.success?)
@@ -201,7 +201,7 @@ class TestOpen3 < Test::Unit::TestCase
   end
 
   def test_capture2e
-    oe, s = Open3.capture2e(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; STDERR.print i+"e"', :stdin_data=>"i")
+    oe, s = Open3.capture2e(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; $stderr.print i+"e"', :stdin_data=>"i")
     assert_equal("ioie", oe)
     assert(s.success?)
   end
@@ -210,7 +210,7 @@ class TestOpen3 < Test::Unit::TestCase
     IO.pipe {|r, w|
       w.write "i"
       w.close
-      oe, s = Open3.capture2e(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; STDERR.print i+"e"', :stdin_data=>r)
+      oe, s = Open3.capture2e(RUBY, '-e', 'i=STDIN.read; print i+"o"; STDOUT.flush; $stderr.print i+"e"', :stdin_data=>r)
       assert_equal("ioie", oe)
       assert(s.success?)
     }
