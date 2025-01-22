@@ -395,6 +395,16 @@ print <<EOS
       RbConfig::CONFIG["ruby_install_name"] + RbConfig::CONFIG["EXEEXT"]
     )
   end
+
+  FROZEN_CONFIG = Ractor.make_shareable(Marshal.load(Marshal.dump({**CONFIG})))
+  FROZEN_MAKEFILE_CONFIG = Ractor.make_shareable(Marshal.load(Marshal.dump({**MAKEFILE_CONFIG})))
+
+  def RbConfig.config
+    Ractor[:__rbconfig_config__] ||= Marshal.load(Marshal.dump(FROZEN_CONFIG))
+  end
+  def RbConfig.makefile_config
+    Ractor[:__rbconfig_makefile_config__] ||= Marshal.load(Marshal.dump(FROZEN_MAKEFILE_CONFIG))
+  end
 end
 CROSS_COMPILING = nil unless defined? CROSS_COMPILING
 EOS
