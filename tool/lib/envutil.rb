@@ -36,7 +36,7 @@ module EnvUtil
   end
   module_function :rubybin
 
-  LANG_ENVS = %w"LANG LC_ALL LC_CTYPE"
+  LANG_ENVS = Ractor.make_shareable(%w"LANG LC_ALL LC_CTYPE")
 
   DEFAULT_SIGNALS = Signal.list
   DEFAULT_SIGNALS.delete("TERM") if /mswin|mingw/ =~ RUBY_PLATFORM
