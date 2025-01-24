@@ -1,38 +1,19 @@
 $: << "#{__dir__}/../lib"
 $: << "#{__dir__}/lib"
+$: << "#{__dir__}/../test"
 
 require 'stringio'
 
 module Test
   module Unit
-    class TestCase
-      @children = [].freeze
-
-      class OmitTest < StandardError
-        attr_reader :obj
-
-        def initialize(obj)
-          @obj = obj
-        end
+    module CoreAssertions
+    end
+    module Assertions
+      def assert_predicate(obj, meth, msg = nil, inverse: false)
+        assert(obj.__send__(meth), msg)
       end
-
-      class << self
-        attr_reader :children
-
-        def inherited(child)
-          return if self != Test::Unit::TestCase
-          @children = Ractor.make_shareable([*@children, child])
-        end
-      end
-
-      def setup
-      end
-
-      def assert_predicate(obj, meth)
-        assert(obj.__send__(meth))
-      end
-      def assert_not_predicate(obj, meth)
-        assert(!obj.__send__(meth))
+      def assert_not_predicate(obj, meth, msg = nil)
+        assert_predicate(obj, meth, msg, inverse: true)
       end
       def assert(val, msg = nil, inverse: false)
         val = !val if inverse
@@ -66,17 +47,17 @@ module Test
           raise msg || "assert fail: not raise"
         end
       end
-      def assert_instance_of(klass, obj)
-        assert(obj.class == klass)
+      def assert_instance_of(klass, obj, msg = nil)
+        assert(obj.class == klass, msg)
       end
       def assert_nothing_raised(e = nil, msg = nil)
         yield
       end
-      def assert_operator(l, op, r)
-        assert(l.__send__(op, r))
+      def assert_operator(l, op, r, msg = nil)
+        assert(l.__send__(op, r), msg)
       end
-      def assert_not_operator(l, op, r)
-        assert(!l.__send__(op, r))
+      def assert_not_operator(l, op, r, msg = nil)
+        assert(!l.__send__(op, r), msg)
       end
       def assert_same(l, r, msg = nil)
         assert(l.equal?(r), msg)
@@ -84,11 +65,11 @@ module Test
       def assert_not_same(l, r, msg = nil)
         assert(!l.equal?(r), msg)
       end
-      def assert_warn(pat, &)
-        assert(EnvUtil.verbose_warning(&) =~ pat)
+      def assert_warn(pat, msg = nil, &)
+        assert(EnvUtil.verbose_warning(&) =~ pat, msg)
       end
-      def assert_warning(pat, &)
-        assert(EnvUtil.verbose_warning(&) =~ pat)
+      def assert_warning(pat, msg = nil, &)
+        assert(EnvUtil.verbose_warning(&) =~ pat, msg)
       end
       def assert_nil(obj, msg = nil)
         assert(obj.nil?, msg)
@@ -128,11 +109,11 @@ module Test
           $stdout, $stderr = orig
         end
       end
-      def assert_syntax_error(src, pat)
+      def assert_syntax_error(src, pat, msg = nil)
         e = assert_raise(SyntaxError, mesg) do
           RubyVM::InstructionSequence.compile(src)
         end
-        assert_match pat, e.message
+        assert_match pat, e.message, msg
         e
       end
       def assert_empty(obj, msg = nil, inverse: false)
@@ -163,8 +144,8 @@ module Test
       def assert_false(val, msg = nil)
         assert val == false, msg
       end
-      def assert_is_minus_zero(val)
-        assert z.zero? && z.polar.last > 0
+      def assert_is_minus_zero(val, msg = nil)
+        assert z.zero? && z.polar.last > 0, msg
       end
 
       def omit(o = nil)
@@ -173,68 +154,96 @@ module Test
         raise OmitTest, o
       end
     end
+
+    class TestCase
+      include Assertions
+
+      @children = [].freeze
+
+      def setup
+      end
+      def teardown
+      end
+
+      class OmitTest < StandardError
+        attr_reader :obj
+
+        def initialize(obj)
+          @obj = obj
+        end
+      end
+
+      class << self
+        attr_accessor :children
+
+        def windows?
+          false
+        end
+
+        def inherited(child)
+          path = caller.first[/(^.*?):\d+:in/, 1]
+          Test::Unit::TestCase.children = Ractor.make_shareable([*Test::Unit::TestCase.children, [child, path]])
+        end
+      end
+    end
   end
 end
 
 require "envutil"
-tests = ARGV 
-if tests.empty?
-  tests = Dir.glob("test/**/test_*.rb")
+tests = Dir.glob("test/**/test_*.rb")
+unless ARGV.empty?
+  given_tests = ARGV.map do |path|
+    path = "#{path}/*" if File.directory?(path)
+    Dir.glob(path)
+  end.flatten
+  tests &= given_tests
 end
 tests.each do |path|
-  if path =~ %r{
-    test/-ext-/|
-    test/mkmf/|
-    test/net/http/test_https_proxy|
-    test/psych/|
-    test/resolv/test_dns|
-    test/ruby/test_autoload.rb|
-    test/ruby/test_call.rb|
-    test/ruby/test_dir_m17n.rb|
-    test/ruby/test_exception.rb|
-    test/ruby/test_file.rb|
-    test/ruby/test_file_exhaustive.rb|
-    test/ruby/test_io.rb|
-    test/ruby/test_keyword.rb|
-    test/ruby/test_memory_view.rb|
-    test/ruby/test_require.rb|
-    test/ruby/test_time_tz.rb|
-    test/rubygems/|
-    test/test_bundled_gems.rb|
-    test/test_extlibs.rb
-    }x
-    puts "skip #{path}"
-    next
-  end
+  next if path =~ %r{
+  test/-ext-/thread
+  |test/fileutils/test_fileutils.rb
+  |test/fiber/test_mutex.rb
+  |test/fiber/test_scheduler.rb
+  |test/net/http/test_httpresponse.rb
+  |test/ruby/test_autoload.rb
+  |test/ruby/test_exception.rb
+  |test/ruby/test_io.rb
+  |test/ruby/test_require.rb
+  }x
   puts "load #{path}"
   load path
 end
 
 T0 = Ractor.make_shareable(Time.now)
 def log(obj)
-  $stderr.puts "[#{Ractor.current} #{"%10.4f" % (Time.now - T0)}] #{obj}"
+  ractor_id = Ractor.current.to_s[/#(\d+)/, 1].to_i
+  $stderr.puts "[%4d %10.4f] %s" % [ractor_id, Time.now - T0, obj]
 end
 
 total_success_count = total_omit_count = total_failure_count = 0
 
-Test::Unit::TestCase.children.each do |test|
-  r = Ractor.new(test) do |test|
+Test::Unit::TestCase.children.sort_by { _1.first.name }.each do |(test, path)|
+  r = Ractor.new(test, path) do |test, path|
     success_count = omit_count = failure_count = 0
-    log test
+    log "#{test} #{path}"
     testcases = test.instance_methods.select { _1.start_with?("test_") }.sort
     testcases.each do |testcase|
-      log "  #{testcase}"
       testobj = test.new
       begin
         testobj.setup
         testobj.__send__(testcase)
+        log "  #{testcase} OK"
         success_count += 1
       rescue Test::Unit::TestCase::OmitTest => e
-        log "    omit: #{e.obj}"
         omit_count += 1
-      rescue StandardError, LoadError => e
-        log "    fail: #{e} at #{e.backtrace&.first}"
+      rescue StandardError, Ractor::Error, LoadError => e
+        log "  #{testcase} fail: #{e} at #{e.backtrace&.first}"
         failure_count += 1
+      ensure
+        begin
+          testobj.teardown
+        rescue StandardError
+        end
       end
     end
     [success_count, omit_count, failure_count]
@@ -243,6 +252,6 @@ Test::Unit::TestCase.children.each do |test|
   total_success_count += counts[0]
   total_omit_count += counts[1]
   total_failure_count += counts[2]
-  log "#{test} result: #{counts}"
+  log "#{test} #{path} result: #{counts}"
   log "progress: {success: #{total_success_count}, omit: #{total_omit_count}, failure: #{total_failure_count}}"
 end
