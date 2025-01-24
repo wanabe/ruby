@@ -3,7 +3,7 @@
 require_relative "helper"
 
 unless Gem.java_platform? # jruby can't require the simple_gem file
-  require "rubygems/simple_gem"
+  require_relative "simple_gem"
 
   class TestGemPackageOld < Gem::TestCase
     def setup
