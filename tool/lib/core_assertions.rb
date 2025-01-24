@@ -1,5 +1,5 @@
 # frozen_string_literal: true
-
+return
 module Test
 
   class << self
