@@ -13,11 +13,13 @@ rescue LoadError
 end
 
 module EnvUtil
+  RUBYBIN = defined?(RbConfig.ruby) ? RbConfig.ruby.dup.freeze : nil
+
   def rubybin
     if ruby = ENV["RUBY"]
       ruby
-    elsif defined?(RbConfig.ruby)
-      RbConfig.ruby
+    elsif RUBYBIN
+      RUBYBIN
     else
       ruby = "ruby"
       exeext = RbConfig::CONFIG["EXEEXT"]
