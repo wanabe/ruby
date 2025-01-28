@@ -44,19 +44,14 @@ module Timeout
   end
 
   # :stopdoc:
-  CONDVAR = ConditionVariable.new
-  QUEUE = Queue.new
-  QUEUE_MUTEX = Mutex.new
-  TIMEOUT_THREAD_MUTEX = Mutex.new
   @timeout_thread = nil
-  private_constant :CONDVAR, :QUEUE, :QUEUE_MUTEX, :TIMEOUT_THREAD_MUTEX
 
   class Request
     attr_reader :deadline
 
     def initialize(thread, timeout, exception_class, message)
       @thread = thread
-      @deadline = GET_TIME.call(Process::CLOCK_MONOTONIC) + timeout
+      @deadline = (Ractor.main? ? GET_TIME.call(Process::CLOCK_MONOTONIC) : Process.clock_gettime(Process::CLOCK_MONOTONIC)) + timeout
       @exception_class = exception_class
       @message = message
 
@@ -95,16 +90,16 @@ module Timeout
     watcher = Thread.new do
       requests = []
       while true
-        until QUEUE.empty? and !requests.empty? # wait to have at least one request
-          req = QUEUE.pop
+        until queue.empty? and !requests.empty? # wait to have at least one request
+          req = queue.pop
           requests << req unless req.done?
         end
         closest_deadline = requests.min_by(&:deadline).deadline
 
         now = 0.0
-        QUEUE_MUTEX.synchronize do
-          while (now = GET_TIME.call(Process::CLOCK_MONOTONIC)) < closest_deadline and QUEUE.empty?
-            CONDVAR.wait(QUEUE_MUTEX, closest_deadline - now)
+        queue_mutex.synchronize do
+          while (now = (Ractor.main? ? GET_TIME.call(Process::CLOCK_MONOTONIC) : Process.clock_gettime(Process::CLOCK_MONOTONIC))) < closest_deadline and queue.empty?
+            condvar.wait(queue_mutex, closest_deadline - now)
           end
         end
 
@@ -114,7 +109,13 @@ module Timeout
         requests.reject!(&:done?)
       end
     end
-    ThreadGroup::Default.add(watcher) unless watcher.group.enclosed?
+    unless watcher.group.enclosed?
+      if Ractor.main?
+        ThreadGroup::Default.add(watcher)
+      else
+        Thread.main.group.add(watcher)
+      end
+    end
     watcher.name = "Timeout stdlib thread"
     watcher.thread_variable_set(:"\0__detached_thread__", true)
     watcher
@@ -122,14 +123,39 @@ module Timeout
   private_class_method :create_timeout_thread
 
   def self.ensure_timeout_thread_created
-    unless @timeout_thread and @timeout_thread.alive?
-      TIMEOUT_THREAD_MUTEX.synchronize do
-        unless @timeout_thread and @timeout_thread.alive?
-          @timeout_thread = create_timeout_thread
+    unless timeout_thread and timeout_thread.alive?
+      timeout_thread_mutex.synchronize do
+        unless timeout_thread and timeout_thread.alive?
+          self.timeout_thread = create_timeout_thread
         end
       end
     end
   end
+
+  def self.timeout_thread
+    Ractor.current[:__timeout_thread__]
+  end
+
+  def self.timeout_thread=(th)
+    Ractor.current[:__timeout_thread__] = th
+  end
+
+  def self.timeout_thread_mutex
+    Ractor.current[:__timeout_thread_mutex__] ||= Mutex.new
+  end
+
+  def self.queue_mutex
+    Ractor.current[:__timeout_queue_mutex__] ||= Mutex.new
+  end
+
+  def self.queue
+    Ractor.current[:__timeout_queue__] ||= Queue.new
+  end
+
+  def self.condvar
+    Ractor.current[:__timeout_condvar__] ||= ConditionVariable.new
+  end
+
 
   # We keep a private reference so that time mocking libraries won't break
   # Timeout.
@@ -177,9 +203,9 @@ module Timeout
     Timeout.ensure_timeout_thread_created
     perform = Proc.new do |exc|
       request = Request.new(Thread.current, sec, exc, message)
-      QUEUE_MUTEX.synchronize do
-        QUEUE << request
-        CONDVAR.signal
+      Timeout.queue_mutex.synchronize do
+        Timeout.queue << request
+        Timeout.condvar.signal
       end
       begin
         return yield(sec)
