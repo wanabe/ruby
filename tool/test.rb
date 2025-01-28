@@ -147,6 +147,15 @@ module Test
       def assert_is_minus_zero(val, msg = nil)
         assert z.zero? && z.polar.last > 0, msg
       end
+      def assert_ractor(*)
+        omit
+      end
+      def assert_in_out_err(argv, stdin, out_ary, err_ary, msg, **opt)
+        out, err, = EnvUtil.invoke_ruby(argv, stdin, true, true, **opt)
+        raise NotImplementError if block_given?
+        assert_equal(out_ary, out.scan(/^.+/))
+        assert_equal(err_ary, err.scan(/^.+/))
+      end
 
       def omit(o = nil)
         return if block_given?
