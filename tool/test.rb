@@ -10,29 +10,31 @@ module Test
     end
     module Assertions
       def assert_predicate(obj, meth, msg = nil, inverse: false)
-        assert(obj.__send__(meth), msg)
+        assert(obj.__send__(meth), msg, inverse:)
       end
       def assert_not_predicate(obj, meth, msg = nil)
         assert_predicate(obj, meth, msg, inverse: true)
       end
+      alias_method :refute_predicate, :assert_not_predicate
       def assert(val, msg = nil, inverse: false)
         val = !val if inverse
         return if val
-        raise msg ? msg.to_s : "assert fail: #{val} is falsey"
+        raise msg ? msg.to_s : "assert fail: #{val.inspect} is falsey"
       end
       def refute(val, msg = nil)
         assert(!val, msg)
       end
       def assert_equal(l, r, msg = nil)
-        assert(l == r, msg || "#{l} != #{r}")
+        assert(l == r, msg || "#{l.inspect} != #{r.inspect}")
       end
       def assert_not_equal(l, r, msg = nil)
         assert(l != r, msg)
       end
-      def assert_raise(klass, msg = nil)
+      def assert_raise(*klasses)
+        msg = klasses.pop unless klasses.last.is_a?(Class)
         begin
           yield
-        rescue klass => e
+        rescue *klasses => e
           e
         else
           raise msg ? msg : "assert fail: not raise"
@@ -42,7 +44,7 @@ module Test
         begin
           yield
         rescue klass => e
-          raise msg || "assert fail: #{e.message} !~ #{pat}" unless pat === e.message
+          raise msg || "assert fail: #{e.message} !~ #{pat.inspect}" unless pat === e.message
         else
           raise msg || "assert fail: not raise"
         end
@@ -150,17 +152,23 @@ module Test
       def assert_ractor(*)
         omit
       end
-      def assert_in_out_err(argv, stdin, out_ary, err_ary, msg, **opt)
+      def assert_no_memory_leak(*)
+        omit
+      end
+      def assert_in_out_err(argv, stdin, out_ary, err_ary, msg = nil, **opt)
         out, err, = EnvUtil.invoke_ruby(argv, stdin, true, true, **opt)
         raise NotImplementError if block_given?
         assert_equal(out_ary, out.scan(/^.+/))
         assert_equal(err_ary, err.scan(/^.+/))
       end
+      def assert_join_threads(threads)
+        threads.map(&:value)
+      end
 
       def omit(o = nil)
         return if block_given?
         raise o if o.is_a?(StandardError)
-        raise OmitTest, o
+        raise Test::Unit::TestCase::OmitTest, o
       end
     end
 
@@ -199,6 +207,12 @@ module Test
 end
 
 require "envutil"
+require "objspace"
+# omit ractor-unsafe method
+def ObjectSpace.memsize_of(*)
+  raise Test::Unit::TestCase::OmitTest, "ObjectSpace.memsize_of"
+end
+
 tests = Dir.glob("test/**/test_*.rb")
 unless ARGV.empty?
   given_tests = ARGV.map do |path|
