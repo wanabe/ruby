@@ -66,9 +66,15 @@ class TestDateStrptime < Test::Unit::TestCase
 
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
+  STRFTIME_2001_02_03_DUMP = Marshal.dump(STRFTIME_2001_02_03)
+  Ractor.make_shareable(STRFTIME_2001_02_03_DUMP)
+
+  def strftime_2001_02_03
+    Marshal.load(STRFTIME_2001_02_03_DUMP)
+  end
 
   def test__strptime
-    STRFTIME_2001_02_03.each do |f, s|
+    strftime_2001_02_03.each do |f, s|
       if (f == '%I' and s[0] == '12') or
 	 (f == '%l' and s[0] == '12') # hour w/o merid
 	s[1][:hour] = 12

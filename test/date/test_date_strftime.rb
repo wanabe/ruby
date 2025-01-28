@@ -67,9 +67,16 @@ class TestDateStrftime < Test::Unit::TestCase
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_CVS19)
   STRFTIME_2001_02_03.update(STRFTIME_2001_02_03_GNUext)
 
+  STRFTIME_2001_02_03_DUMP = Marshal.dump(STRFTIME_2001_02_03)
+  Ractor.make_shareable(STRFTIME_2001_02_03_DUMP)
+
+  def strftime_2001_02_03
+    Marshal.load(STRFTIME_2001_02_03_DUMP)
+  end
+
   def test_strftime
     d = Date.new(2001,2,3)
-    STRFTIME_2001_02_03.each do |f, s|
+    strftime_2001_02_03.each do |f, s|
       assert_equal(s[0], d.strftime(f), [f, s].inspect)
       case f[-1,1]
       when 'c', 'C', 'x', 'X', 'y', 'Y'
