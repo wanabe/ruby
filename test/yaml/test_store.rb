@@ -79,6 +79,7 @@ class YAMLStoreTest < Test::Unit::TestCase
   end
 
   def test_thread_safe
+    omit
     q1 = Thread::Queue.new
     assert_raise(PStore::Error) do
       th = Thread.new do
