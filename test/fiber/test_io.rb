@@ -171,6 +171,8 @@ class TestFiberIO < Test::Unit::TestCase
     assert_predicate(o, :closed?)
   end
 
+  SEPARATOR = $/.dup.freeze
+
   def test_puts_empty
     omit "UNIXSocket is not defined!" unless defined?(UNIXSocket)
 
@@ -196,7 +198,7 @@ class TestFiberIO < Test::Unit::TestCase
     message = i.read
     i.close
 
-    assert_equal $/*2, message
+    assert_equal SEPARATOR*2, message
   end
 
   def test_io_select
