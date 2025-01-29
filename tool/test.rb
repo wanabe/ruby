@@ -79,6 +79,7 @@ module Test
       def assert_not_nil(obj, msg = nil)
         assert(!obj.nil?, msg)
       end
+      alias_method :refute_nil, :assert_not_nil
       def assert_kind_of(klass, obj, msg = nil)
         assert(obj.is_a?(klass), msg)
       end
@@ -207,6 +208,7 @@ module Test
 end
 
 require "envutil"
+require "tempfile"
 require "objspace"
 # omit ractor-unsafe method
 def ObjectSpace.memsize_of(*)
@@ -232,6 +234,8 @@ tests.each do |path|
   |test/ruby/test_exception.rb
   |test/ruby/test_io.rb
   |test/ruby/test_require.rb
+
+  |test/fiber/test_ractor.rb
   }x
   puts "load #{path}"
   load path
