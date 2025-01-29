@@ -298,10 +298,9 @@ class TestISeq < Test::Unit::TestCase
   end
 
   def test_frozen_string_literal_compile_option
-    $f = 'f'
     line = __LINE__ + 2
     code = <<-'EOS'
-    ['foo', 'foo', "#{$f}foo", "#{'foo'}"]
+    ['foo', 'foo', "#{}foo", "#{'foo'}"]
     EOS
     s1, s2, s3, s4 = compile(code, line, {frozen_string_literal: true}).eval
     assert_predicate(s1, :frozen?)
