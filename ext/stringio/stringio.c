@@ -1905,7 +1905,7 @@ Init_stringio(void)
     VALUE StringIO = rb_define_class("StringIO", rb_cObject);
 
     /* The version string */
-    rb_define_const(StringIO, "VERSION", rb_str_new_cstr(STRINGIO_VERSION));
+    rb_define_const(StringIO, "VERSION", rb_str_freeze(rb_str_new_cstr(STRINGIO_VERSION)));
 
     rb_include_module(StringIO, rb_mEnumerable);
     rb_define_alloc_func(StringIO, strio_s_allocate);
