@@ -73,10 +73,10 @@ module Test
         assert(!l.equal?(r), msg)
       end
       def assert_warn(pat, msg = nil, &)
-        assert(EnvUtil.verbose_warning(&) =~ pat, msg)
+        assert(pat === EnvUtil.verbose_warning(&), msg)
       end
       def assert_warning(pat, msg = nil, &)
-        assert(EnvUtil.verbose_warning(&) =~ pat, msg)
+        assert(pat === EnvUtil.verbose_warning(&), msg)
       end
       def assert_nil(obj, msg = nil)
         assert(obj.nil?, msg)
@@ -118,7 +118,7 @@ module Test
         end
       end
       def assert_syntax_error(src, pat, msg = nil)
-        e = assert_raise(SyntaxError, mesg) do
+        e = assert_raise(SyntaxError, msg) do
           RubyVM::InstructionSequence.compile(src)
         end
         assert_match pat, e.message, msg
@@ -161,11 +161,56 @@ module Test
       def assert_no_memory_leak(*)
         omit
       end
-      def assert_in_out_err(argv, stdin, out_ary, err_ary, msg = nil, **opt)
-        out, err, = EnvUtil.invoke_ruby(argv, stdin, true, true, **opt)
-        raise NotImplementError if block_given?
-        assert_equal(out_ary, out.scan(/^.+/))
-        assert_equal(err_ary, err.scan(/^.+/))
+
+      def assert_in_out_err(argv, stdin = "", expect_out = nil, expect_err = nil, msg = nil, success: nil, **opt)
+        out, err, stat = EnvUtil.invoke_ruby(argv, stdin, true, true, **opt)
+        out_ary = out.scan(/^.+/)
+        err_ary = err.scan(/^.+/)
+        if block_given?
+          yield out_ary, err_ary, stat
+        end
+        unless success.nil?
+          assert_equal(stat.success?, success)
+        end
+        assert_output_result(expect_out, out_ary)
+        assert_output_result(expect_err, err_ary)
+      end
+      def assert_output_result(expect, ary)
+        case expect
+        when nil
+          return
+        when Array
+          assert_equal(expect, ary)
+        when Regexp
+          assert_match(expect, ary.join(""))
+        else
+          raise "unexpect type: #{expect.class}"
+        end
+      end
+      def assert_ruby_status(argv, stdin = "", msg = nil, **opt)
+        assert_in_out_err(argv, stdin, success: true)
+      end
+      def assert_separately(argv, scr, **opt)
+        scr = <<~EOS
+          require "tool/test"
+          include Test::Unit::Assertions
+          Ractor.make_shareable(ARGV)
+          begin
+            Ractor.new do
+              #{scr}
+            end.take
+          rescue
+            $stderr.puts $!.message
+            exit(1)
+          end
+        EOS
+
+        assert_normal_exit(scr, argv: ["-I#{__dir__}/..", *argv])
+      end
+      def assert_normal_exit(scr, msg = nil, argv: nil)
+        assert_in_out_err(["--disable-gems", *argv], scr) do |out_ary, err_ary, stat|
+          assert(stat.success?, msg || err_ary.join(""))
+        end
       end
       def assert_join_threads(threads)
         threads.map(&:value)
@@ -175,6 +220,9 @@ module Test
         return if block_given?
         raise o if o.is_a?(StandardError)
         raise Test::Unit::TestCase::OmitTest, o
+      end
+      def message(*)
+        nil
       end
     end
 
@@ -219,6 +267,8 @@ require "objspace"
 def ObjectSpace.memsize_of(*)
   raise Test::Unit::TestCase::OmitTest, "ObjectSpace.memsize_of"
 end
+
+return if $0 != __FILE__
 
 tests = Dir.glob("test/**/test_*.rb")
 unless ARGV.empty?
