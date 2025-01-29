@@ -1,3 +1,8 @@
+exedir = File.dirname(File.readlink("/proc/#{$$}/exe"))
+$:.unshift exedir
+require "rbconfig"
+$:.unshift "#{exedir}/.ext/#{RbConfig::CONFIG["arch"]}"
+
 $: << "#{__dir__}/../lib"
 $: << "#{__dir__}/lib"
 $: << "#{__dir__}/../test"
