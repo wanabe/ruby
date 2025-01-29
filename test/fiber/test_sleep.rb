@@ -3,7 +3,7 @@ require 'test/unit'
 require_relative 'scheduler'
 
 class TestFiberSleep < Test::Unit::TestCase
-  ITEMS = [0, 1, 2, 3, 4]
+  ITEMS = [0, 1, 2, 3, 4].freeze
 
   def test_sleep
     items = []
