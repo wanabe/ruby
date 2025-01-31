@@ -44,9 +44,9 @@ module URI
     # * SCOPE_SUB  - subtrees, all entries at all levels
     #
     SCOPE = [
-      SCOPE_ONE = 'one',
-      SCOPE_SUB = 'sub',
-      SCOPE_BASE = 'base',
+      SCOPE_ONE = 'one'.freeze,
+      SCOPE_SUB = 'sub'.freeze,
+      SCOPE_BASE = 'base'.freeze,
     ].freeze
 
     #

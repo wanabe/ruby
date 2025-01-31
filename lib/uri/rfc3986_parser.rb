@@ -164,14 +164,16 @@ module URI
       escaped ? RFC2396_PARSER.unescape(str, escaped) : RFC2396_PARSER.unescape(str)
     end
 
-    @@to_s = Kernel.instance_method(:to_s)
-    if @@to_s.respond_to?(:bind_call)
+    def self.kernel_to_s
+      Kernel.instance_method(:to_s)
+    end
+    if kernel_to_s.respond_to?(:bind_call)
       def inspect
-        @@to_s.bind_call(self)
+        self.class.kernel_to_s.bind_call(self)
       end
     else
       def inspect
-        @@to_s.bind(self).call
+        self.class.kernel_to_s.bind(self).call
       end
     end
 

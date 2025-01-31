@@ -25,13 +25,13 @@ module URI
       # RFC 2373 (IPv6 Addressing Architecture)
 
       # alpha         = lowalpha | upalpha
-      ALPHA = "a-zA-Z"
+      ALPHA = "a-zA-Z".freeze
       # alphanum      = alpha | digit
       ALNUM = "#{ALPHA}\\d"
 
       # hex           = digit | "A" | "B" | "C" | "D" | "E" | "F" |
       #                         "a" | "b" | "c" | "d" | "e" | "f"
-      HEX     = "a-fA-F\\d"
+      HEX     = "a-fA-F\\d".freeze
       # escaped       = "%" hex hex
       ESCAPED = "%[#{HEX}]{2}"
       # mark          = "-" | "_" | "." | "!" | "~" | "*" | "'" |
@@ -321,14 +321,16 @@ module URI
       str.gsub(escaped) { [$&[1, 2]].pack('H2').force_encoding(enc) }
     end
 
-    TO_S = Kernel.instance_method(:to_s) # :nodoc:
-    if TO_S.respond_to?(:bind_call)
+    def self.kernel_to_s # :nodoc:
+      Kernel.instance_method(:to_s)
+    end
+    if kernel_to_s.respond_to?(:bind_call)
       def inspect # :nodoc:
-        TO_S.bind_call(self)
+        self.class.kernel_to_s.bind_call(self)
       end
     else
       def inspect # :nodoc:
-        TO_S.bind(self).call
+        self.class.kernel_to_s.bind(self).call
       end
     end
 
