@@ -971,17 +971,19 @@ class TestStringIO < Test::Unit::TestCase
   end
 
   %w/UTF-8 UTF-16BE UTF-16LE UTF-32BE UTF-32LE/.each do |name|
-    define_method("test_strip_bom:#{name}") do
+    eval <<~EOS
+    def test_strip_bom_#{name.tr("-", "_")}
       text = "\uFEFF\u0100a"
-      content = text.encode(name)
+      content = text.encode(#{name.dump})
       result = StringIO.new(content, mode: 'rb:BOM|UTF-8').read
-      assert_equal(Encoding.find(name), result.encoding, name)
-      assert_equal(content[1..-1].b, result.b, name)
+      assert_equal(Encoding.find(#{name.dump}), result.encoding, #{name.dump})
+      assert_equal(content[1..-1].b, result.b, #{name.dump})
 
       StringIO.open(content) {|f|
-        assert_equal(Encoding.find(name), f.set_encoding_by_bom)
+        assert_equal(Encoding.find(#{name.dump}), f.set_encoding_by_bom)
       }
     end
+    EOS
   end
 
   def test_binary_encoding_read_and_default_internal
