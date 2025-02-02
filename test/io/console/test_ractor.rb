@@ -1,12 +1,14 @@
 # frozen_string_literal: true
 require 'test/unit'
 require 'rbconfig'
+require 'io/console'
 
 class TestIOConsoleInRactor < Test::Unit::TestCase
+  ext = "/io/console.#{RbConfig::CONFIG['DLEXT']}"
+  IO_CONSOLE_PATH = $".find {|path| path.end_with?(ext)}.dup.freeze
+
   def test_ractor
-    ext = "/io/console.#{RbConfig::CONFIG['DLEXT']}"
-    path = $".find {|path| path.end_with?(ext)}
-    assert_in_out_err(%W[-r#{path}], "#{<<~"begin;"}\n#{<<~'end;'}", ["true"], [])
+    assert_in_out_err(%W[-r#{IO_CONSOLE_PATH}], "#{<<~"begin;"}\n#{<<~'end;'}", ["true"], [])
     begin;
       $VERBOSE = nil
       r = Ractor.new do
@@ -21,7 +23,7 @@ class TestIOConsoleInRactor < Test::Unit::TestCase
       puts r.take
     end;
 
-    assert_in_out_err(%W[-r#{path}], "#{<<~"begin;"}\n#{<<~'end;'}", ["true"], [])
+    assert_in_out_err(%W[-r#{IO_CONSOLE_PATH}], "#{<<~"begin;"}\n#{<<~'end;'}", ["true"], [])
     begin;
       console = IO.console
       $VERBOSE = nil

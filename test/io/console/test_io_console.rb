@@ -15,7 +15,7 @@ class TestIO_Console < Test::Unit::TestCase
     raise
   end
   PATHS.uniq!
-  INCLUDE_OPTS = "-I#{PATHS.join(File::PATH_SEPARATOR)}"
+  INCLUDE_OPTS = "-I#{PATHS.join(File::PATH_SEPARATOR)}".freeze
 
   # FreeBSD seems to hang on TTOU when running parallel tests
   # tested on FreeBSD 11.x.
@@ -41,7 +41,7 @@ class TestIO_Console < Test::Unit::TestCase
     Errno.const_get(e) if Errno.const_defined?(e)
   }
   exceptions.compact!
-  FailedPathExceptions = (exceptions unless exceptions.empty?)
+  FailedPathExceptions = (exceptions unless exceptions.empty?).freeze
 
   def test_failed_path
     File.open(IO::NULL) do |f|
@@ -557,7 +557,7 @@ defined?(IO.console) and TestIO_Console.class_eval do
 
   if noctty
     require 'tempfile'
-    NOCTTY = noctty
+    NOCTTY = Ractor.make_shareable(noctty)
     def run_noctty(src)
       t = Tempfile.new("noctty_out")
       t.close
