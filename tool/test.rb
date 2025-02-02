@@ -18,6 +18,7 @@ module Test
     module CoreAssertions
     end
     module Assertions
+      INCLUDE_PATHS = Ractor.make_shareable($:.map { "-I#{_1}" })
       def assert_predicate(obj, meth, msg = nil, inverse: false)
         assert(obj.__send__(meth), msg, inverse:)
       end
@@ -40,7 +41,7 @@ module Test
         assert(l != r, msg)
       end
       def assert_raise(*klasses)
-        msg = klasses.pop unless klasses.last.is_a?(Class)
+        msg = klasses.pop unless klasses.last.is_a?(Module)
         begin
           yield
         rescue *klasses => e
@@ -54,6 +55,7 @@ module Test
           yield
         rescue klass => e
           raise msg || "assert fail: #{e.message} !~ #{pat.inspect}" unless pat === e.message
+          return e
         else
           raise msg || "assert fail: not raise"
         end
@@ -93,6 +95,7 @@ module Test
         assert(obj.is_a?(klass), msg)
       end
       def assert_match(pat, obj, msg = nil, inverse: false)
+        pat = Regexp.new(Regexp.escape(pat)) if pat.is_a?(String)
         assert(pat =~ obj, msg, inverse:)
       end
       def assert_no_match(pat, obj, msg = nil)
@@ -213,7 +216,7 @@ module Test
           end
         EOS
 
-        assert_normal_exit(scr, argv: ["-I#{__dir__}/..", *argv])
+        assert_normal_exit(scr, argv: ["-I#{__dir__}/..", *INCLUDE_PATHS, *argv])
       end
       def assert_normal_exit(scr, msg = nil, argv: nil)
         assert_in_out_err(["--disable-gems", *argv], scr) do |out_ary, err_ary, stat|
@@ -277,6 +280,13 @@ end
 
 return if $0 != __FILE__
 
+if ARGV[-2] == "-e"
+  _, pat = ARGV.pop(2)
+  PAT = Regexp.new(pat).freeze
+else
+  PAT = nil
+end
+
 tests = Dir.glob("test/**/test_*.rb")
 unless ARGV.empty?
   given_tests = ARGV.map do |path|
@@ -316,6 +326,7 @@ Test::Unit::TestCase.children.sort_by { _1.first.name }.each do |(test, path)|
     success_count = omit_count = failure_count = 0
     log "#{test} #{path}"
     testcases = test.instance_methods.select { _1.start_with?("test_") }.sort
+    testcases.keep_if { PAT =~ _1 } if PAT
     testcases.each do |testcase|
       testobj = test.new
       begin
