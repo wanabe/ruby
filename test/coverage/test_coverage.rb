@@ -15,6 +15,7 @@ class TestCoverage < Test::Unit::TestCase
     ARGV << "-W:no-experimental"
     ARGV << "--parser=prism"
   end
+  Ractor.make_shareable(ARGV)
 
   def test_result_without_start
     assert_in_out_err(ARGV, <<-"end;", [], /coverage measurement is not enabled/)
