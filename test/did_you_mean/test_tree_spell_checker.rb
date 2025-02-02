@@ -7,6 +7,8 @@ require_relative "./helper"
 class TreeSpellCheckerTest < Test::Unit::TestCase
   MINI_DIRECTORIES = YAML.load_file(File.expand_path("fixtures/mini_dir.yml", __dir__))
   RSPEC_DIRECTORIES = YAML.load_file(File.expand_path("fixtures/rspec_dir.yml", __dir__))
+  Ractor.make_shareable(MINI_DIRECTORIES)
+  Ractor.make_shareable(RSPEC_DIRECTORIES)
 
   def setup
     @dictionary =
