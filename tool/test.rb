@@ -1,11 +1,15 @@
-exedir = File.dirname(File.readlink("/proc/#{$$}/exe"))
-$:.unshift exedir
+$:.clear
+RUBYBIN = Ractor.make_shareable(File.readlink("/proc/#{$$}/exe"))
+exedir = File.dirname(RUBYBIN)
+$:.unshift exedir, "#{exedir}/.ext/common"
 require "rbconfig"
 $:.unshift "#{exedir}/.ext/#{RbConfig::CONFIG["arch"]}"
 
 $: << "#{__dir__}/../lib"
 $: << "#{__dir__}/lib"
 $: << "#{__dir__}/../test"
+
+Warning[:deprecated] = true
 
 require 'stringio'
 
@@ -21,10 +25,10 @@ module Test
         assert_predicate(obj, meth, msg, inverse: true)
       end
       alias_method :refute_predicate, :assert_not_predicate
-      def assert(val, msg = nil, inverse: false)
+      def assert(val, msg = nil, inverse: false, backtrace: caller)
         val = !val if inverse
         return if val
-        raise msg ? msg.to_s : "assert fail: #{val.inspect} is falsey"
+        raise RuntimeError, msg ? msg.to_s : "assert fail: #{val.inspect} is falsey", backtrace
       end
       def refute(val, msg = nil)
         assert(!val, msg)
@@ -72,11 +76,11 @@ module Test
       def assert_not_same(l, r, msg = nil)
         assert(!l.equal?(r), msg)
       end
-      def assert_warn(pat, msg = nil, &)
-        assert(pat === EnvUtil.verbose_warning(&), msg)
+      def assert_warn(pat, msg = nil, backtrace: caller, &)
+        assert(pat === EnvUtil.verbose_warning(&), msg, backtrace:)
       end
-      def assert_warning(pat, msg = nil, &)
-        assert(pat === EnvUtil.verbose_warning(&), msg)
+      def assert_warning(pat, msg = nil, backtrace: caller, &)
+        assert(pat === EnvUtil.verbose_warning(&), msg, backtrace:)
       end
       def assert_nil(obj, msg = nil)
         assert(obj.nil?, msg)
@@ -97,6 +101,7 @@ module Test
       def assert_not_match(pat, obj, msg = nil)
         assert_match(pat, obj, msg, inverse: true)
       end
+      alias_method :refute_match, :assert_not_match
       def assert_include(set, obj, msg = nil, inverse: false)
         assert(set.include?(obj), msg, inverse:)
       end
@@ -161,9 +166,12 @@ module Test
       def assert_no_memory_leak(*)
         omit
       end
+      def assert_linear_performance(*)
+        omit
+      end
 
       def assert_in_out_err(argv, stdin = "", expect_out = nil, expect_err = nil, msg = nil, success: nil, **opt)
-        out, err, stat = EnvUtil.invoke_ruby(argv, stdin, true, true, **opt)
+        out, err, stat = EnvUtil.invoke_ruby(argv, stdin, true, true, rubybin: RUBYBIN, **opt)
         out_ary = out.scan(/^.+/)
         err_ary = err.scan(/^.+/)
         if block_given?
@@ -218,7 +226,6 @@ module Test
 
       def omit(o = nil)
         return if block_given?
-        raise o if o.is_a?(StandardError)
         raise Test::Unit::TestCase::OmitTest, o
       end
       def message(*)
@@ -319,7 +326,7 @@ Test::Unit::TestCase.children.sort_by { _1.first.name }.each do |(test, path)|
       rescue Test::Unit::TestCase::OmitTest => e
         omit_count += 1
       rescue StandardError, Ractor::Error, LoadError => e
-        log "  #{testcase} fail: #{e} at #{e.backtrace&.first}"
+        log "  #{testcase} fail(#{e.class}): #{e} at #{e.backtrace&.first}"
         failure_count += 1
       ensure
         begin
