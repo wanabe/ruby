@@ -419,7 +419,7 @@ module TestOpenURIUtils
   # server/cert.pem => TestOpenURISSL::SERVER_CERT
   # `openssl rsa -in server/server.key -text` => TestOpenURISSL::SERVER_KEY
 
-  CA_CERT = <<'End'
+  CA_CERT = <<'End'.freeze
 Certificate:
     Data:
         Version: 3 (0x2)
@@ -499,7 +499,7 @@ DdhyBKYA5WKkEz+etoYl3NH/Ovz1DuQO97hmkP5PwlQqf2Fu50u/QH51MAJbu5Eb
 -----END CERTIFICATE-----
 End
 
-  SERVER_CERT = <<'End'
+  SERVER_CERT = <<'End'.freeze
 Certificate:
     Data:
         Version: 3 (0x2)
@@ -582,7 +582,7 @@ QIa2ECEOMWmBnvz9wwYlZTfT2UoghKrnDmB8vz+IZ6zljOBh1g==
 -----END CERTIFICATE-----
 End
 
-  SERVER_KEY = <<'End'
+  SERVER_KEY = <<'End'.freeze
 RSA Private-Key: (2048 bit, 2 primes)
 modulus:
     00:cb:b3:71:95:12:70:fc:db:d4:a9:a7:66:d6:d3:
@@ -703,7 +703,7 @@ JQDFoTV6jOqVFpTDfI8r4FPqZq4ZvlUEPe7iS6hpG37YCX/tfO6ViBDcS1u/gaTo
 -----END RSA PRIVATE KEY-----
 End
 
-  DHPARAMS = <<'End'
+  DHPARAMS = <<'End'.freeze
     DH Parameters: (2048 bit)
         prime:
             00:ec:4e:a4:06:b6:22:ca:f9:8a:00:cc:d0:ee:2f:
