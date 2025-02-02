@@ -17,10 +17,13 @@ module DidYouMean
     private_constant :INITIAL_LOAD_PATH, :ENV_SPECIFIC_EXT
 
     def self.requireables
-      @requireables ||= INITIAL_LOAD_PATH
-                          .flat_map {|path| Dir.glob("**/???*{.rb,#{ENV_SPECIFIC_EXT}}", base: path) }
-                          .map {|path| path.chomp!(".rb") || path.chomp!(ENV_SPECIFIC_EXT) }
+      return @requireables if @requireables
+      @requireables = INITIAL_LOAD_PATH
+                        .flat_map {|path| Dir.glob("**/???*{.rb,#{ENV_SPECIFIC_EXT}}", base: path) }
+                        .map {|path| path.chomp!(".rb") || path.chomp!(ENV_SPECIFIC_EXT) }
+      Ractor.make_shareable(@requireables)
     end
+    requireables
 
     def initialize(exception)
       @path = exception.path
