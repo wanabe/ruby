@@ -1170,5 +1170,5 @@ class Net::HTTPResponse
     '508' => Net::HTTPLoopDetected,
     '510' => Net::HTTPNotExtended,
     '511' => Net::HTTPNetworkAuthenticationRequired,
-  }
+  }.freeze
 end
