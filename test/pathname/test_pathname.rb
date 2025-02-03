@@ -26,15 +26,32 @@ class TestPathname < Test::Unit::TestCase
     end
   end
 
+  def self.val2scr(val)
+    case val
+    when String
+      val.dump
+    when Pathname
+      "Pathname.new(#{val.to_s.dump})"
+    when Array
+      "[#{val.map { val2scr(_1) }.join(", ")}]"
+    when Regexp
+      val.inspect
+    when true, false, nil
+      val.inspect
+    else
+      raise "invalid: #{val}, #{val.class}"
+    end
+  end
+
   def self.defassert(name, result, *args)
     mesg = "#{name}(#{args.map {|a| a.inspect }.join(', ')})"
     define_assertion(name, get_linenum, <<~EOS)
       assert_nothing_raised(#{mesg.dump}) {
-        assert_equal(#{result.dump}, self.send(#{name.inspect}, #{args.map(&:dump).join(", ")}), #{mesg.dump})
+        assert_equal(#{val2scr(result)}, self.send(#{name.inspect}, #{val2scr(args)[1..-2]}), #{mesg.dump})
       }
     EOS
   rescue => e
-    puts "skip #{name}: #{e}"
+    puts "skip #{name}#{caller}: #{e}"
   end
 
   def self.defassert_raise(name, exc, *args)
