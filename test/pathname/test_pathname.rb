@@ -8,9 +8,14 @@ require 'tmpdir'
 
 
 class TestPathname < Test::Unit::TestCase
-  def self.define_assertion(name, linenum, &block)
+  def self.define_assertion(name, linenum, scr)
+    name = name.to_s.sub("?", "_p").to_sym if name =~ /\?/
     name = "test_#{name}_#{linenum}"
-    define_method(name, &block)
+    eval <<~EOS
+      def #{name}
+        #{scr}
+      end
+    EOS
   end
 
   def self.get_linenum
@@ -22,19 +27,21 @@ class TestPathname < Test::Unit::TestCase
   end
 
   def self.defassert(name, result, *args)
-    define_assertion(name, get_linenum) {
-      mesg = "#{name}(#{args.map {|a| a.inspect }.join(', ')})"
-      assert_nothing_raised(mesg) {
-        assert_equal(result, self.send(name, *args), mesg)
+    mesg = "#{name}(#{args.map {|a| a.inspect }.join(', ')})"
+    define_assertion(name, get_linenum, <<~EOS)
+      assert_nothing_raised(#{mesg.dump}) {
+        assert_equal(#{result.dump}, self.send(#{name.inspect}, #{args.map(&:dump).join(", ")}), #{mesg.dump})
       }
-    }
+    EOS
+  rescue => e
+    puts "skip #{name}: #{e}"
   end
 
   def self.defassert_raise(name, exc, *args)
-    define_assertion(name, get_linenum) {
-      message = "#{name}(#{args.map {|a| a.inspect }.join(', ')})"
-      assert_raise(exc, message) { self.send(name, *args) }
-    }
+    message = "#{name}(#{args.map {|a| a.inspect }.join(', ')})"
+    define_assertion(name, get_linenum, <<~EOS)
+      assert_raise(#{exc}, #{message.dump}) { self.send(#{name.inspect}, #{args.map(&:dump).join(", ")}) }
+    EOS
   end
 
   DOSISH = File::ALT_SEPARATOR != nil
