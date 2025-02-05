@@ -300,13 +300,13 @@ module TestNetHTTP_version_1_1_methods
   end
 
   def test_s_get
-    assert_equal $test_net_http_data,
+    assert_equal test_net_http_data,
         Net::HTTP.get(config('host'), '/', config('port'))
 
-    assert_equal $test_net_http_data, Net::HTTP.get(
+    assert_equal test_net_http_data, Net::HTTP.get(
       URI.parse("http://#{config('host')}:#{config('port')}")
     )
-    assert_equal $test_net_http_data, Net::HTTP.get(
+    assert_equal test_net_http_data, Net::HTTP.get(
       URI.parse("http://#{config('host')}:#{config('port')}"), "Accept" => "text/plain"
     )
   end
@@ -316,22 +316,22 @@ module TestNetHTTP_version_1_1_methods
       URI.parse("http://#{config('host')}:#{config('port')}")
     )
     assert_equal "application/octet-stream", res["Content-Type"]
-    assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data, res.body
 
     res = Net::HTTP.get_response(
       URI.parse("http://#{config('host')}:#{config('port')}"), "Accept" => "text/plain"
     )
     assert_equal "text/plain", res["Content-Type"]
-    assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data, res.body
   end
 
   def test_head
     start {|http|
       res = http.head('/')
       assert_kind_of Net::HTTPResponse, res
-      assert_equal $test_net_http_data_type, res['Content-Type']
+      assert_equal test_net_http_data_type, res['Content-Type']
       unless self.is_a?(TestNetHTTP_v1_2_chunked)
-        assert_equal $test_net_http_data.size, res['Content-Length'].to_i
+        assert_equal test_net_http_data.size, res['Content-Length'].to_i
       end
     }
   end
@@ -350,11 +350,11 @@ module TestNetHTTP_version_1_1_methods
     assert_kind_of String, res.body
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
       assert_not_nil res['content-length']
-      assert_equal $test_net_http_data.size, res['content-length'].to_i
+      assert_equal test_net_http_data.size, res['content-length'].to_i
     end
-    assert_equal $test_net_http_data_type, res['Content-Type']
-    assert_equal $test_net_http_data.size, res.body.size
-    assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data_type, res['Content-Type']
+    assert_equal test_net_http_data.size, res.body.size
+    assert_equal test_net_http_data, res.body
 
     assert_nothing_raised {
       http.get('/', { 'User-Agent' => 'test' }.freeze)
@@ -370,13 +370,13 @@ module TestNetHTTP_version_1_1_methods
     # assert_kind_of String, res.body
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
       assert_not_nil res['content-length']
-      assert_equal $test_net_http_data.size, res['content-length'].to_i
+      assert_equal test_net_http_data.size, res['content-length'].to_i
     end
-    assert_equal $test_net_http_data_type, res['Content-Type']
-    assert_equal $test_net_http_data.size, buf.size
-    assert_equal $test_net_http_data, buf
-    # assert_equal $test_net_http_data.size, res.body.size
-    # assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data_type, res['Content-Type']
+    assert_equal test_net_http_data.size, buf.size
+    assert_equal test_net_http_data, buf
+    # assert_equal test_net_http_data.size, res.body.size
+    # assert_equal test_net_http_data, res.body
   end
 
   def _test_get__chunked(http)
@@ -386,13 +386,13 @@ module TestNetHTTP_version_1_1_methods
     # assert_kind_of String, res.body
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
       assert_not_nil res['content-length']
-      assert_equal $test_net_http_data.size, res['content-length'].to_i
+      assert_equal test_net_http_data.size, res['content-length'].to_i
     end
-    assert_equal $test_net_http_data_type, res['Content-Type']
-    assert_equal $test_net_http_data.size, buf.size
-    assert_equal $test_net_http_data, buf
-    # assert_equal $test_net_http_data.size, res.body.size
-    # assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data_type, res['Content-Type']
+    assert_equal test_net_http_data.size, buf.size
+    assert_equal test_net_http_data, buf
+    # assert_equal test_net_http_data.size, res.body.size
+    # assert_equal test_net_http_data, res.body
   end
 
   def test_get__break
@@ -414,9 +414,9 @@ module TestNetHTTP_version_1_1_methods
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
       assert_not_nil res['content-length']
     end
-    assert_equal $test_net_http_data_type, res['Content-Type']
-    assert_equal $test_net_http_data.size, res.body.size
-    assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data_type, res['Content-Type']
+    assert_equal test_net_http_data.size, res.body.size
+    assert_equal test_net_http_data, res.body
   end
 
   def test_get__crlf
@@ -441,12 +441,12 @@ module TestNetHTTP_version_1_1_methods
         unless self.is_a?(TestNetHTTP_v1_2_chunked)
           assert_not_nil res['content-length']
         end
-        assert_equal $test_net_http_data_type, res['Content-Type']
+        assert_equal test_net_http_data_type, res['Content-Type']
         assert_kind_of String, res.body
         assert_kind_of String, res.entity
-        assert_equal $test_net_http_data.size, res.body.size
-        assert_equal $test_net_http_data, res.body
-        assert_equal $test_net_http_data, res.entity
+        assert_equal test_net_http_data.size, res.body.size
+        assert_equal test_net_http_data, res.body
+        assert_equal test_net_http_data, res.entity
       }
     }
   end
@@ -660,10 +660,10 @@ module TestNetHTTP_version_1_2_methods
       assert_kind_of String, res.body
       unless self.is_a?(TestNetHTTP_v1_2_chunked)
         assert_not_nil res['content-length']
-        assert_equal $test_net_http_data.size, res['content-length'].to_i
+        assert_equal test_net_http_data.size, res['content-length'].to_i
       end
-      assert_equal $test_net_http_data.size, res.body.size
-      assert_equal $test_net_http_data, res.body
+      assert_equal test_net_http_data.size, res.body.size
+      assert_equal test_net_http_data, res.body
 
       assert res.decode_content, 'Bug #7831' if Net::HTTP::HAVE_ZLIB
     }
@@ -676,10 +676,10 @@ module TestNetHTTP_version_1_2_methods
       assert_kind_of String, res.body
       unless self.is_a?(TestNetHTTP_v1_2_chunked)
         assert_not_nil res['content-length']
-        assert_equal $test_net_http_data.size, res['content-length'].to_i
+        assert_equal test_net_http_data.size, res['content-length'].to_i
       end
-      assert_equal $test_net_http_data.size, res.body.size
-      assert_equal $test_net_http_data, res.body
+      assert_equal test_net_http_data.size, res.body.size
+      assert_equal test_net_http_data, res.body
 
       assert_not_predicate res, :decode_content, 'Bug #7831' if Net::HTTP::HAVE_ZLIB
     }
@@ -691,20 +691,20 @@ module TestNetHTTP_version_1_2_methods
       assert_kind_of Net::HTTPResponse, res
       unless self.is_a?(TestNetHTTP_v1_2_chunked)
         assert_not_nil res['content-length']
-        assert_equal $test_net_http_data.size, res['content-length'].to_i
+        assert_equal test_net_http_data.size, res['content-length'].to_i
       end
       f = StringIO.new("".force_encoding("ASCII-8BIT"))
       res.read_body f
-      assert_equal $test_net_http_data.bytesize, f.string.bytesize
-      assert_equal $test_net_http_data.encoding, f.string.encoding
-      assert_equal $test_net_http_data, f.string
+      assert_equal test_net_http_data.bytesize, f.string.bytesize
+      assert_equal test_net_http_data.encoding, f.string.encoding
+      assert_equal test_net_http_data, f.string
     }
   end
 
   def _test_request__range(http)
     req = Net::HTTP::Get.new('/')
     req['range'] = 'bytes=0-5'
-    assert_equal $test_net_http_data[0,6], http.request(req).body
+    assert_equal test_net_http_data[0,6], http.request(req).body
   end
 
   def _test_request__HEAD(http)
@@ -713,7 +713,7 @@ module TestNetHTTP_version_1_2_methods
       assert_kind_of Net::HTTPResponse, res
       unless self.is_a?(TestNetHTTP_v1_2_chunked)
         assert_not_nil res['content-length']
-        assert_equal $test_net_http_data.size, res['content-length'].to_i
+        assert_equal test_net_http_data.size, res['content-length'].to_i
       end
       assert_nil res.body
     }
@@ -722,7 +722,7 @@ module TestNetHTTP_version_1_2_methods
   def _test_request__POST(http)
     data = 'post data'
     req = Net::HTTP::Post.new('/')
-    req['Accept'] = $test_net_http_data_type
+    req['Accept'] = test_net_http_data_type
     req['Content-Type'] = 'application/x-www-form-urlencoded'
     http.request(req, data) {|res|
       assert_kind_of Net::HTTPResponse, res
@@ -736,7 +736,7 @@ module TestNetHTTP_version_1_2_methods
 
   def _test_request__stream_body(http)
     req = Net::HTTP::Post.new('/')
-    data = $test_net_http_data
+    data = test_net_http_data
     req.content_length = data.size
     req['Content-Type'] = 'application/x-www-form-urlencoded'
     req.body_stream = StringIO.new(data)
@@ -804,10 +804,10 @@ module TestNetHTTP_version_1_2_methods
     res = http.send_request('GET', '/')
     assert_kind_of Net::HTTPResponse, res
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
-      assert_equal $test_net_http_data.size, res['content-length'].to_i
+      assert_equal test_net_http_data.size, res['content-length'].to_i
     end
     assert_kind_of String, res.body
-    assert_equal $test_net_http_data, res.body
+    assert_equal test_net_http_data, res.body
   end
 
   def _test_send_request__HEAD(http)
@@ -815,7 +815,7 @@ module TestNetHTTP_version_1_2_methods
     assert_kind_of Net::HTTPResponse, res
     unless self.is_a?(TestNetHTTP_v1_2_chunked)
       assert_not_nil res['content-length']
-      assert_equal $test_net_http_data.size, res['content-length'].to_i
+      assert_equal test_net_http_data.size, res['content-length'].to_i
     end
     assert_nil res.body
   end
@@ -897,7 +897,7 @@ __EOM__
     require 'tempfile'
     Tempfile.create('ruby-test') {|file|
       file.binmode
-      file << $test_net_http_data
+      file << test_net_http_data
       filename = File.basename(file.to_path)
       data = [['file', file]]
       expected = <<"__EOM__".gsub(/\n/, "\r\n")
@@ -909,7 +909,7 @@ Content-Type: application/octet-stream
 --<boundary>--
 __EOM__
       expected.sub!(/<filename>/, filename)
-      expected.sub!(/<data>/, $test_net_http_data)
+      expected.sub!(/<data>/, test_net_http_data)
       start {|http|
         @server.mount('/', lambda {|req, res| res.body = req.body })
         data.each{|k,v|v.rewind rescue nil}
@@ -943,6 +943,7 @@ class TestNetHTTP_v1_2 < Test::Unit::TestCase
     'proxy_host' => nil,
     'proxy_port' => nil,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
   include TestNetHTTP_version_1_1_methods
@@ -972,6 +973,7 @@ class TestNetHTTP_v1_2_chunked < Test::Unit::TestCase
     'proxy_port' => nil,
     'chunked' => true,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
   include TestNetHTTP_version_1_1_methods
@@ -1002,6 +1004,7 @@ class TestNetHTTPContinue < Test::Unit::TestCase
     'proxy_port' => nil,
     'chunked' => true,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 
@@ -1102,6 +1105,7 @@ class TestNetHTTPSwitchingProtocols < Test::Unit::TestCase
     'proxy_port' => nil,
     'chunked' => true,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 
@@ -1136,6 +1140,7 @@ class TestNetHTTPKeepAlive < Test::Unit::TestCase
     'proxy_port' => nil,
     'RequestTimeout' => 1,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 
@@ -1289,6 +1294,7 @@ class TestNetHTTPLocalBind < Test::Unit::TestCase
     'proxy_host' => nil,
     'proxy_port' => nil,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 
@@ -1326,6 +1332,7 @@ class TestNetHTTPForceEncoding < Test::Unit::TestCase
     'proxy_host' => nil,
     'proxy_port' => nil,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 
@@ -1381,6 +1388,7 @@ class TestNetHTTPPartialResponse < Test::Unit::TestCase
     'proxy_host' => nil,
     'proxy_port' => nil,
   }
+  Ractor.make_shareable(CONFIG)
 
   include TestNetHTTPUtils
 

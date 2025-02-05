@@ -42,7 +42,7 @@ class TestNetHTTPS < Test::Unit::TestCase
       preverify_ok
     end
     http.request_get("/") {|res|
-      assert_equal($test_net_http_data, res.body)
+      assert_equal(test_net_http_data, res.body)
     }
     # TODO: OpenSSL 1.1.1h seems to yield only SERVER_CERT; need to check the incompatibility
     certs.zip([CA_CERT, SERVER_CERT][-certs.size..-1]) do |actual, expected|
@@ -61,7 +61,7 @@ class TestNetHTTPS < Test::Unit::TestCase
       preverify_ok
     end
     http.request_get("/") {|res|
-      assert_equal($test_net_http_data, res.body)
+      assert_equal(test_net_http_data, res.body)
     }
     # TODO: OpenSSL 1.1.1h seems to yield only SERVER_CERT; need to check the incompatibility
     certs.zip([CA_CERT, SERVER_CERT][-certs.size..-1]) do |actual, expected|
@@ -160,7 +160,7 @@ class TestNetHTTPS < Test::Unit::TestCase
     http.start
     session_reused = http.instance_variable_get(:@socket).io.session_reused?
     assert_true session_reused unless session_reused.nil? # can not detect re-use under JRuby
-    assert_equal $test_net_http_data, http.get("/").body
+    assert_equal test_net_http_data, http.get("/").body
     http.finish
   end
 
@@ -202,7 +202,7 @@ class TestNetHTTPS < Test::Unit::TestCase
     http.use_ssl = true
     http.verify_mode = OpenSSL::SSL::VERIFY_NONE
     http.request_get("/") {|res|
-      assert_equal($test_net_http_data, res.body)
+      assert_equal(test_net_http_data, res.body)
     }
   end
 
@@ -267,7 +267,7 @@ class TestNetHTTPS < Test::Unit::TestCase
     http.min_version = :TLS1
     http.cert_store = TEST_STORE
     http.request_get("/") {|res|
-      assert_equal($test_net_http_data, res.body)
+      assert_equal(test_net_http_data, res.body)
     }
   end
 

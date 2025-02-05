@@ -261,7 +261,7 @@ module TestNetHTTPUtils
   def spawn_server
     @log = []
     @log_tester = lambda {|log| assert_equal([], log) }
-    @config = self.class::CONFIG
+    @config = self.class::CONFIG.dup
     @server = HTTPServer.new(@config) do |method, path, headers, socket|
       @log << "DEBUG accept: #{@config['host']}:#{socket.addr[1]}" if @logger_level == :debug
       case method
@@ -285,9 +285,9 @@ module TestNetHTTPUtils
     if headers['Accept'] != '*/*'
       content_type = headers['Accept']
     else
-      content_type = $test_net_http_data_type
+      content_type = test_net_http_data_type
     end
-    response = "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\nContent-Length: #{$test_net_http_data.bytesize}"
+    response = "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\nContent-Length: #{test_net_http_data.bytesize}"
     socket.print(response)
   end
 
@@ -295,9 +295,9 @@ module TestNetHTTPUtils
     if headers['Accept'] != '*/*'
       content_type = headers['Accept']
     else
-      content_type = $test_net_http_data_type
+      content_type = test_net_http_data_type
     end
-    response = "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\nContent-Length: #{$test_net_http_data.bytesize}\r\n\r\n#{$test_net_http_data}"
+    response = "HTTP/1.1 200 OK\r\nContent-Type: #{content_type}\r\nContent-Length: #{test_net_http_data.bytesize}\r\n\r\n#{test_net_http_data}"
     socket.print(response)
   end
 
@@ -328,9 +328,18 @@ module TestNetHTTPUtils
   end
 
   $test_net_http = nil
-  $test_net_http_data = (0...256).to_a.map { |i| i.chr }.join('') * 64
-  $test_net_http_data.force_encoding("ASCII-8BIT")
-  $test_net_http_data_type = 'application/octet-stream'
+
+  def test_net_http_data
+    TestNetHTTPUtils::TEST_NET_HTTP_DATA
+  end
+  def test_net_http_data_type
+    TestNetHTTPUtils::TEST_NET_HTTP_DATA_TYPE
+  end
+
+  TEST_NET_HTTP_DATA = (0...256).to_a.map { |i| i.chr }.join('') * 64
+  TEST_NET_HTTP_DATA.force_encoding("ASCII-8BIT")
+  TEST_NET_HTTP_DATA.freeze
+  TEST_NET_HTTP_DATA_TYPE = 'application/octet-stream'.freeze
 
   def self.clean_http_proxy_env
     orig = {
