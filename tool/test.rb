@@ -234,6 +234,9 @@ module Test
       def message(*)
         nil
       end
+      def windows?
+        false
+      end
     end
 
     class TestCase
