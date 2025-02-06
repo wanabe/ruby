@@ -51,11 +51,11 @@ class Gem::Command
   # Arguments used when building gems
 
   def self.build_args
-    @build_args ||= []
+    Ractor.current[:__rubygems_command_build_args__] ||= []
   end
 
   def self.build_args=(value)
-    @build_args = value
+    Ractor.current[:__rubygems_command_build_args__] = value
   end
 
   def self.common_options
@@ -100,7 +100,7 @@ class Gem::Command
   # Accessor for the specific extra args hash (self initializing).
 
   def self.specific_extra_args_hash
-    @specific_extra_args_hash ||= Hash.new do |h,k|
+    Ractor.current[:__rubygems_command_specific_extra_args_hash__] ||= Hash.new do |h,k|
       h[k] = Array.new
     end
   end

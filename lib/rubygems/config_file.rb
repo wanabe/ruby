@@ -74,7 +74,7 @@ class Gem::ConfigFile
 
   # :startdoc:
 
-  SYSTEM_WIDE_CONFIG_FILE = File.join SYSTEM_CONFIG_PATH, "gemrc"
+  SYSTEM_WIDE_CONFIG_FILE = Ractor.make_shareable(File.join SYSTEM_CONFIG_PATH, "gemrc")
 
   ##
   # List of arguments supplied to the config file object.

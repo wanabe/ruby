@@ -20,13 +20,13 @@ module Gem::DefaultUserInteraction
   # The default UI is a class variable of the singleton class for this
   # module.
 
-  @ui = nil
+  Ractor.current[:__rubygems_user_interaction_ui__] = nil
 
   ##
   # Return the default UI.
 
   def self.ui
-    @ui ||= Gem::ConsoleUI.new
+    Ractor.current[:__rubygems_user_interaction_ui__] ||= Gem::ConsoleUI.new
   end
 
   ##
@@ -34,18 +34,18 @@ module Gem::DefaultUserInteraction
   # console based UserInteraction will be used automatically.
 
   def self.ui=(new_ui)
-    @ui = new_ui
+    Ractor.current[:__rubygems_user_interaction_ui__] = new_ui
   end
 
   ##
   # Use +new_ui+ for the duration of +block+.
 
   def self.use_ui(new_ui)
-    old_ui = @ui
-    @ui = new_ui
+    old_ui = Ractor.current[:__rubygems_user_interaction_ui__]
+    Ractor.current[:__rubygems_user_interaction_ui__] = new_ui
     yield
   ensure
-    @ui = old_ui
+    Ractor.current[:__rubygems_user_interaction_ui__] = old_ui
   end
 
   ##
