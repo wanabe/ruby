@@ -11,7 +11,7 @@ class TestGemProjectSanity < Gem::TestCase
   end
 
   def test_manifest_is_up_to_date
-    pend unless File.exist?("#{root}/Rakefile")
+    omit unless File.exist?("#{root}/Rakefile")
     rake = "#{root}/bin/rake"
 
     _, status = Open3.capture2e(rake, "check_manifest")

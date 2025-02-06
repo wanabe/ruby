@@ -313,7 +313,7 @@ class Gem::TestCase < Test::Unit::TestCase
     @orig_system_wide_config_file = Gem::ConfigFile::SYSTEM_WIDE_CONFIG_FILE
     Gem::ConfigFile.send :remove_const, :SYSTEM_WIDE_CONFIG_FILE
     Gem::ConfigFile.send :const_set, :SYSTEM_WIDE_CONFIG_FILE,
-                         File.join(@tempdir, "system-gemrc")
+                         Ractor.make_shareable(File.join(@tempdir, "system-gemrc"))
 
     @gemhome  = File.join @tempdir, "gemhome"
     @userhome = File.join @tempdir, "userhome"
@@ -326,11 +326,12 @@ class Gem::TestCase < Test::Unit::TestCase
       ruby
     end
 
-    @git = ENV["GIT"] || "git#{RbConfig::CONFIG["EXEEXT"]}"
+    @git = ENV["GIT"] || "git#{RbConfig.config["EXEEXT"]}"
 
     Gem.ensure_gem_subdirectories @gemhome
     Gem.ensure_default_gem_subdirectories @gemhome
 
+    omit
     @orig_load_path = $LOAD_PATH.dup
     $LOAD_PATH.map! do |s|
       expand_path = begin
@@ -1244,10 +1245,12 @@ Also, a list:
   end
 
   def rubygems_path
+    omit
     $LOAD_PATH.find {|p| p == File.dirname($LOADED_FEATURES.find {|f| f.end_with?("/rubygems.rb") }) }
   end
 
   def bundler_path
+    omit
     $LOAD_PATH.find {|p| p == File.dirname($LOADED_FEATURES.find {|f| f.end_with?("/bundler.rb") }) }
   end
 
