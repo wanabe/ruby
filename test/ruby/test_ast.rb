@@ -116,25 +116,30 @@ class TestAst < Test::Unit::TestCase
   SRCDIR = File.expand_path("../../..", __FILE__)
 
   Dir.glob("test/**/*.rb", base: SRCDIR).each do |path|
-    define_method("test_ranges:#{path}") do
+    eval <<~EOS
+    define_method(:"test_ranges:#{path}", &Ractor.make_shareable(proc do
       helper = Helper.new("#{SRCDIR}/#{path}")
       helper.validate_range
 
       assert_equal([], helper.errors)
-    end
+    end))
+    EOS
   end
 
   Dir.glob("test/**/*.rb", base: SRCDIR).each do |path|
-    define_method("test_not_cared:#{path}") do
+    eval <<~EOS
+    define_method("test_not_cared:#{path}", &Ractor.make_shareable(proc do
       helper = Helper.new("#{SRCDIR}/#{path}")
       helper.validate_not_cared
 
       assert_equal([], helper.errors)
-    end
+    end))
+    EOS
   end
 
   Dir.glob("test/**/*.rb", base: SRCDIR).each do |path|
-    define_method("test_all_tokens:#{path}") do
+    eval <<~EOS
+    define_method("test_all_tokens:#{path}", &Ractor.make_shareable(proc do
       node = RubyVM::AbstractSyntaxTree.parse_file("#{SRCDIR}/#{path}", keep_tokens: true)
       tokens = node.all_tokens.sort_by { [_1.last[0], _1.last[1]] }
       tokens_bytes = tokens.map { _1[2]}.join.bytes
@@ -150,15 +155,16 @@ class TestAst < Test::Unit::TestCase
 
         if end_pos[0] == beg_pos[0]
           # When both tokens are same line, column should be consecutives
-          assert_equal(beg_pos[1], end_pos[1], "#{token_0}. #{token_1}")
+          assert_equal(beg_pos[1], end_pos[1], "\#{token_0}. \#{token_1}")
         else
           # Line should be next
-          assert_equal(beg_pos[0], end_pos[0] + 1, "#{token_0}. #{token_1}")
+          assert_equal(beg_pos[0], end_pos[0] + 1, "\#{token_0}. \#{token_1}")
           # It should be on the beginning of the line
-          assert_equal(0, beg_pos[1], "#{token_0}. #{token_1}")
+          assert_equal(0, beg_pos[1], "\#{token_0}. \#{token_1}")
         end
       end
-    end
+    end))
+    EOS
   end
 
   private def parse(src)
