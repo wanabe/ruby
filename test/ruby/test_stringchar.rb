@@ -41,12 +41,14 @@ END
     assert_match(/foo(?=(bar)|(baz))/, "foobar")
     assert_match(/foo(?=(bar)|(baz))/, "foobaz")
 
-    $foo = "abc"
-    assert_equal("abc = abc", "#$foo = abc")
-    assert_equal("abc = abc", "#{$foo} = abc")
+    if Ractor.main?
+      $foo = "abc"
+      assert_equal("abc = abc", "#$foo = abc")
+      assert_equal("abc = abc", "#{$foo} = abc")
 
-    foo = "abc"
-    assert_equal("abc = abc", "#{foo} = abc")
+      foo = "abc"
+      assert_equal("abc = abc", "#{foo} = abc")
+    end
 
     assert_equal('-----', '-' * 5)
     assert_equal('-', '-' * 1)

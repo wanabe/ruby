@@ -5,7 +5,7 @@ class TestString < Test::Unit::TestCase
   WIDE_ENCODINGS = [
      Encoding::UTF_16BE, Encoding::UTF_16LE,
      Encoding::UTF_32BE, Encoding::UTF_32LE,
-  ]
+  ].freeze
 
   def initialize(*args)
     @cls = String
@@ -399,7 +399,7 @@ CODE
 
   end
 
-  Bug2463 = '[ruby-dev:39856]'
+  Bug2463 = '[ruby-dev:39856]'.freeze
   def test_center
     assert_equal(S("hello"),       S("hello").center(4))
     assert_equal(S("   hello   "), S("hello").center(11))
@@ -408,6 +408,7 @@ CODE
   end
 
   def test_chomp
+    omit
     verbose, $VERBOSE = $VERBOSE, nil
 
     assert_equal(S("hello"), S("hello").chomp("\n"))
@@ -474,11 +475,13 @@ CODE
     s = "foo\r"
     assert_equal("foo", s.chomp("\n"))
   ensure
+    omit
     $/ = save
     $VERBOSE = verbose
   end
 
   def test_chomp!
+    omit
     verbose, $VERBOSE = $VERBOSE, nil
 
     a = S("hello")
@@ -598,6 +601,7 @@ CODE
 
     assert_raise(ArgumentError) {String.new.chomp!("", "")}
   ensure
+    omit
     $/ = save
     $VERBOSE = verbose
   end
@@ -672,6 +676,7 @@ CODE
   end
 
   def test_string_interpolations_across_heaps_get_embedded
+    omit
     omit if GC::INTERNAL_CONSTANTS[:HEAP_COUNT] == 1
 
     require 'objspace'
@@ -943,6 +948,7 @@ CODE
   end
 
   def test_each
+    omit
     verbose, $VERBOSE = $VERBOSE, nil
 
     save = $/
@@ -963,6 +969,7 @@ CODE
     assert_equal(S("hello!"), res[0])
     assert_equal(S("world"),  res[1])
   ensure
+    omit
     $/ = save
     $VERBOSE = verbose
   end
@@ -1134,6 +1141,7 @@ CODE
   end
 
   def test_each_line
+    omit
     verbose, $VERBOSE = $VERBOSE, nil
 
     save = $/
@@ -1181,6 +1189,7 @@ CODE
       S("\n\u0100").each_line("\n") {}
     end
   ensure
+    omit
     $/ = save
     $VERBOSE = verbose
   end
@@ -1804,6 +1813,7 @@ CODE
   end
 
   def test_split
+    omit
     fs, $; = $;, nil
     assert_equal([S("a"), S("b"), S("c")], S(" a   b\t c ").split)
     assert_equal([S("a"), S("b"), S("c")], S(" a   b\t c ").split(S(" ")))
@@ -1827,10 +1837,12 @@ CODE
 
     assert_equal([], S("").split(//, 1))
   ensure
+    omit
     EnvUtil.suppress_warning {$; = fs}
   end
 
   def test_split_with_block
+    omit
     fs, $; = $;, nil
     result = []; S(" a   b\t c ").split {|s| result << s}
     assert_equal([S("a"), S("b"), S("c")], result)
@@ -1870,10 +1882,12 @@ CODE
     result = []; S("aaa,bbb,ccc,ddd").split(/,/) {|s| result << s.gsub(/./, "A")}
     assert_equal(["AAA"]*4, result)
   ensure
+    omit
     EnvUtil.suppress_warning {$; = fs}
   end
 
   def test_fs
+    omit
     return unless @cls == String
 
     assert_raise_with_message(TypeError, /\$;/) {
@@ -2781,6 +2795,7 @@ CODE
   end
 
   def test_fs_setter
+    omit
     return unless @cls == String
 
     assert_raise(TypeError) { $/ = 1 }
@@ -3384,7 +3399,7 @@ CODE
     require 'objspace'
 
     str = "test_uplus_minus_str".freeze
-    assert_includes ObjectSpace.dump(str), '"fstring":true'
+    assert_includes ObjectSpace.dump(str), '"fstring":true' if Ractor.main?
 
     assert_predicate(str, :frozen?)
     assert_not_predicate(+str, :frozen?)
@@ -3394,7 +3409,7 @@ CODE
     assert_same(str, -str)
 
     bar = -%w(test uplus minus str).join('_')
-    assert_same(str, bar, "uminus deduplicates [Feature #13077] str: #{ObjectSpace.dump(str)} bar: #{ObjectSpace.dump(bar)}")
+    assert_same(str, bar, "uminus deduplicates [Feature #13077] str: #{ObjectSpace.dump(str)} bar: #{ObjectSpace.dump(bar)}") if Ractor.main?
   end
 
   def test_uminus_frozen

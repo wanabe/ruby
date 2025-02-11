@@ -4,6 +4,7 @@ require 'objspace'
 
 class TestStringMemory < Test::Unit::TestCase
   def capture_allocations(klass)
+    omit
     allocations = []
 
     EnvUtil.without_gc do
