@@ -18,6 +18,12 @@ module Test
     module CoreAssertions
     end
     module Assertions
+      class For
+        def for(*)
+          yield
+        end
+      end
+
       INCLUDE_PATHS = Ractor.make_shareable($:.map { "-I#{_1}" })
       def assert_predicate(obj, meth, msg = nil, inverse: false)
         assert(obj.__send__(meth), msg, inverse:)
@@ -114,6 +120,7 @@ module Test
       def assert_not_include(set, obj, msg = nil)
         assert_include(set, obj, msg, inverse: true)
       end
+      alias_method :refute_includes, :assert_not_include
       def assert_output(out_pat = nil, err_pat = nil)
         orig = [$stdout, $stderr]
         begin
@@ -171,6 +178,9 @@ module Test
       end
       def assert_linear_performance(*)
         omit
+      end
+      def all_assertions(*)
+        yield For.new
       end
 
       def assert_in_out_err(argv, stdin = "", expect_out = nil, expect_err = nil, msg = nil, success: nil, **opt)
