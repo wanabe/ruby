@@ -39,6 +39,10 @@ class CGI
   #   cookie1.httponly = true
   class Cookie < Array
     @@accept_charset="UTF-8" unless defined?(@@accept_charset)
+    def self.ractor_safe_accept_charset
+      return @@ractor_safe_accept_charset if Ractor.main?
+      Ractor[:__cgi_cookie_accept_charset] ||= "UTF-8"
+    end
 
     TOKEN_RE = %r"\A[[!-~]&&[^()<>@,;:\\\"/?=\[\]{}]]+\z"
     PATH_VALUE_RE = %r"\A[[ -~]&&[^;]]*\z"
@@ -188,7 +192,7 @@ class CGI
         name, values = pairs.split('=',2)
         next unless name and values
         values ||= ""
-        values = values.split('&').collect{|v| CGI.unescape(v,@@accept_charset) }
+        values = values.split('&').collect{|v| CGI.unescape(v, ractor_safe_accept_charset) }
         if cookies.has_key?(name)
           values = cookies[name].value + values
         end

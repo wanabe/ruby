@@ -7,6 +7,11 @@ end
 module CGI::Util
   @@accept_charset = Encoding::UTF_8 unless defined?(@@accept_charset)
 
+  def ractor_safe_accept_charset
+    return @@accept_charset if Ractor.main?
+    Ractor[:__cgi_util_accept_charset] ||= Encoding::UTF_8
+  end
+
   # URL-encode a string into application/x-www-form-urlencoded.
   # Space characters (+" "+) are encoded with plus signs (+"+"+)
   #   url_encoded_string = CGI.escape("'Stop!' said Fred")
@@ -24,7 +29,7 @@ module CGI::Util
   # URL-decode an application/x-www-form-urlencoded string with encoding(optional).
   #   string = CGI.unescape("%27Stop%21%27+said+Fred")
   #      # => "'Stop!' said Fred"
-  def unescape(string, encoding = @@accept_charset)
+  def unescape(string, encoding = ractor_safe_accept_charset)
     str = string.tr('+', ' ')
     str = str.b
     str.gsub!(/((?:%[0-9a-fA-F]{2})+)/) do |m|
@@ -33,6 +38,7 @@ module CGI::Util
     str.force_encoding(encoding)
     str.valid_encoding? ? str : str.force_encoding(string.encoding)
   end
+  alias_method :slow_unescape, :unescape if defined?(Ractor)
 
   # URL-encode a string following RFC 3986
   # Space characters (+" "+) are encoded with (+"%20"+)
@@ -51,7 +57,7 @@ module CGI::Util
   # URL-decode a string following RFC 3986 with encoding(optional).
   #   string = CGI.unescapeURIComponent("%27Stop%21%27+said%20Fred")
   #      # => "'Stop!'+said Fred"
-  def unescapeURIComponent(string, encoding = @@accept_charset)
+  def unescapeURIComponent(string, encoding = ractor_safe_accept_charset)
     str = string.b
     str.gsub!(/((?:%[0-9a-fA-F]{2})+)/) do |m|
       [m.delete('%')].pack('H*')
@@ -61,6 +67,7 @@ module CGI::Util
   end
 
   alias unescape_uri_component unescapeURIComponent
+  alias_method :slow_unescape_uri_component, :unescapeURIComponent if defined?(Ractor)
 
   # The set of special characters and their escaped values
   TABLE_FOR_ESCAPE_HTML__ = {
@@ -70,6 +77,7 @@ module CGI::Util
     '<' => '&lt;',
     '>' => '&gt;',
   }
+  Ractor.make_shareable(TABLE_FOR_ESCAPE_HTML__)
 
   # Escape special characters in HTML, namely '&\"<>
   #   CGI.escapeHTML('Usage: foo "bar" <baz>')
@@ -97,6 +105,19 @@ module CGI::Util
   unless RUBY_ENGINE == 'truffleruby'
     begin
       require 'cgi/escape'
+      module CGI::Escape::ForRactor
+        def unescapeURIComponent(*)
+          return slow_unescape_uri_component(*) unless Ractor.main?
+          super
+        end
+        alias_method :unescape_uri_component, :unescapeURIComponent
+        def unescape(*)
+          return slow_unescape(*) unless Ractor.main?
+          super
+        end
+      end
+      prepend CGI::Escape::ForRactor
+      CGI.extend CGI::Escape::ForRactor
     rescue LoadError
     end
   end

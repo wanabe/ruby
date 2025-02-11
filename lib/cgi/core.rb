@@ -23,6 +23,10 @@ class CGI
   # Standard internet newline sequence
   EOL = CR + LF
 
+  Ractor.make_shareable(CR)
+  Ractor.make_shareable(LF)
+  Ractor.make_shareable(EOL)
+
   REVISION = '$Id$' #:nodoc:
 
   # Whether processing will be required in binary vs text
@@ -52,6 +56,7 @@ class CGI
     "BAD_GATEWAY"         => "502 Bad Gateway",
     "VARIANT_ALSO_VARIES" => "506 Variant Also Negotiates"
   }
+  Ractor.make_shareable(HTTP_STATUS)
 
   # :startdoc:
 
@@ -272,7 +277,7 @@ class CGI
   private :_header_for_hash
 
   def nph?  #:nodoc:
-    return /IIS\/(\d+)/ =~ $CGI_ENV['SERVER_SOFTWARE'] && $1.to_i < 5
+    return Ractor.main? && /IIS\/(\d+)/ =~ $CGI_ENV['SERVER_SOFTWARE'] && $1.to_i < 5
   end
 
   def _header_for_modruby(buf)  #:nodoc:
@@ -432,9 +437,11 @@ class CGI
   module QueryExtension
 
     %w[ CONTENT_LENGTH SERVER_PORT ].each do |env|
-      define_method(env.delete_prefix('HTTP_').downcase) do
-        (val = env_table[env]) && Integer(val)
-      end
+      eval <<~SCRIPT
+        def #{env.delete_prefix('HTTP_').downcase}
+          (val = env_table[#{env.dump}]) && Integer(val)
+        end
+      SCRIPT
     end
 
     %w[ AUTH_TYPE CONTENT_TYPE GATEWAY_INTERFACE PATH_INFO
@@ -445,9 +452,11 @@ class CGI
         HTTP_ACCEPT HTTP_ACCEPT_CHARSET HTTP_ACCEPT_ENCODING
         HTTP_ACCEPT_LANGUAGE HTTP_CACHE_CONTROL HTTP_FROM HTTP_HOST
         HTTP_NEGOTIATE HTTP_PRAGMA HTTP_REFERER HTTP_USER_AGENT ].each do |env|
-      define_method(env.delete_prefix('HTTP_').downcase) do
-        env_table[env]
-      end
+      eval <<~SCRIPT
+        def #{env.delete_prefix('HTTP_').downcase}
+          env_table[#{env.dump}]
+        end
+      SCRIPT
     end
 
     # Get the raw cookies as a string.
@@ -617,6 +626,7 @@ class CGI
       return body
     end
     def unescape_filename?  #:nodoc:
+      return false unless Ractor.main?
       user_agent = $CGI_ENV['HTTP_USER_AGENT']
       return false unless user_agent
       return /Mac/i.match(user_agent) && /Mozilla/i.match(user_agent) && !/MSIE/i.match(user_agent)
@@ -777,6 +787,10 @@ class CGI
   # See CGI.new documentation.
   #
   @@max_multipart_length= 128 * 1024 * 1024
+  def ractor_safe_max_multipart_length
+    return @@max_multipart_length if Ractor.main?
+    Ractor[:__cgi_max_multipart_length] ||= 128 * 1024 * 1024
+  end
 
   # Create a new CGI instance.
   #
@@ -850,8 +864,8 @@ class CGI
   def initialize(options = {}, &block) # :yields: name, value
     @accept_charset_error_block = block_given? ? block : nil
     @options={
-      :accept_charset=>@@accept_charset,
-      :max_multipart_length=>@@max_multipart_length
+      :accept_charset=>ractor_safe_accept_charset,
+      :max_multipart_length=>ractor_safe_max_multipart_length
     }
     case options
     when Hash
