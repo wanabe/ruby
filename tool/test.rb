@@ -182,6 +182,12 @@ module Test
       def all_assertions(*)
         yield For.new
       end
+      def assert_respond_to(obj, meth, inverse: false)
+        assert(obj.respond_to?(meth), inverse:)
+      end
+      def assert_not_respond_to(obj, meth)
+        assert_respond_to(obj, meth, inverse: true)
+      end
 
       def assert_in_out_err(argv, stdin = "", expect_out = nil, expect_err = nil, msg = nil, success: nil, **opt)
         out, err, stat = EnvUtil.invoke_ruby(argv, stdin, true, true, rubybin: RUBYBIN, **opt)
