@@ -121,6 +121,8 @@ class IO
     Primitive.io_write_nonblock(buf, exception)
   end
 
+  SEPARATOR = $/.dup.freeze
+
   # call-seq:
   #   readline(sep = $/, chomp: false)   -> string
   #   readline(limit, chomp: false)      -> string
@@ -130,7 +132,7 @@ class IO
   #
   # Optional keyword argument +chomp+ specifies whether line separators
   # are to be omitted.
-  def readline(sep = $/, limit = nil, chomp: false)
+  def readline(sep = SEPARATOR, limit = nil, chomp: false)
     Primitive.io_readline(sep, limit, chomp)
   end
 end
