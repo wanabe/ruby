@@ -438,12 +438,17 @@ class ERB
     result(b)
   end
 
+  def self.ractor_safe_toplevel
+    return TOPLEVEL_BINDING if Ractor.main?
+    b = Ractor[:__erb_toplevel_binding] ||= Ractor.current.__send__(:binding)
+  end
+
   ##
   # Returns a new binding each time *near* TOPLEVEL_BINDING for runs that do
   # not specify a binding.
 
   def new_toplevel(vars = nil)
-    b = TOPLEVEL_BINDING
+    b = ERB.ractor_safe_toplevel
     if vars
       vars = vars.select {|v| b.local_variable_defined?(v)}
       unless vars.empty?

@@ -38,6 +38,17 @@ module ERB::Util
   #   is a &gt; 0 &amp; a &lt; 10?
   #
   include ERB::Escape # html_escape
+  module ForRactor
+    def html_escape(str)
+      if Ractor.main?
+        ERB::Escape.html_escape(str)
+      else
+        str = str.to_s unless str.is_a?(String)
+        CGI.escapeHTML(str)
+      end
+    end
+  end
+  prepend ForRactor
   module_function :html_escape
   alias h html_escape
   module_function :h

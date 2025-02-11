@@ -225,7 +225,7 @@ class ERB::Compiler # :nodoc:
       end
     end
 
-    ERB_STAG = %w(<%= <%# <%)
+    ERB_STAG = Ractor.make_shareable(%w(<%= <%# <%))
     def is_erb_stag?(s)
       ERB_STAG.member?(s)
     end
