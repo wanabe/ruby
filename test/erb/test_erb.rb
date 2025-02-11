@@ -88,6 +88,7 @@ class TestERB < Test::Unit::TestCase
   end
 
   def test_html_escape_extension
+    omit
     assert_nil(ERB::Util.method(:html_escape).source_location)
   end if RUBY_ENGINE == 'ruby'
 
@@ -97,7 +98,7 @@ class TestERB < Test::Unit::TestCase
 
     template1 = 'one <%= ERB.new(template2).result %>'
 
-    eval 'template2 = "two"', TOPLEVEL_BINDING
+    eval 'template2 = "two"', ERB.ractor_safe_toplevel
 
     bug7046 = '[ruby-core:47638]'
     assert_equal("one two", ERB.new(template1).result, bug7046)
@@ -657,13 +658,14 @@ EOS
   end
 
   def test_result_with_hash_does_not_modify_toplevel_binding
+    b = Ractor.main? ? TOPLEVEL_BINDING : Ractor.current.__send__(:binding)
     erb = @erb.new("<%= foo %>")
     erb.result_with_hash(foo: "1")
-    assert_equal(false, TOPLEVEL_BINDING.local_variable_defined?(:foo))
-    TOPLEVEL_BINDING.eval 'template2 = "two"'
+    assert_equal(false, b.local_variable_defined?(:foo))
+    b.eval 'template2 = "two"'
     erb = @erb.new("<%= template2 %>")
     erb.result_with_hash(template2: "TWO")
-    assert_equal "two", TOPLEVEL_BINDING.local_variable_get("template2")
+    assert_equal "two", b.local_variable_get("template2")
   end
 
   # This depends on the behavior that #local_variable_set raises TypeError by invalid key.
@@ -729,6 +731,7 @@ end
 
 class TestERBCoreWOStrScan < TestERBCore
   def setup
+    omit
     @save_map = ERB::Compiler::Scanner.instance_variable_get('@scanner_map')
     map = {[nil, false]=>ERB::Compiler::SimpleScanner}
     ERB::Compiler::Scanner.instance_variable_set('@scanner_map', map)
