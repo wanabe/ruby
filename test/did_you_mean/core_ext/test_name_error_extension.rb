@@ -11,6 +11,7 @@ class NameErrorExtensionTest < Test::Unit::TestCase
   end
 
   def setup
+    omit unless Ractor.main?
     @original_spell_checker = DidYouMean.spell_checkers['NameError']
     DidYouMean.correct_error(NameError, TestSpellChecker)
 

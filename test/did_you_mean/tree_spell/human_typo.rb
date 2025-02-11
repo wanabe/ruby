@@ -4,7 +4,7 @@ module TreeSpell
   # Simulate an error prone human typist
   # see doc/human_typo_api.md for the api description
   class HumanTypo
-    POPULAR_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ?<>,.!`+=-_":;@#$%^&*()'.split("").freeze
+    POPULAR_CHARS = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ?<>,.!`+=-_":;@#$%^&*()'.split("").each(&:freeze).freeze
     ACTION_TYPES  = %i(insert transpose delete substitute).freeze
 
     def initialize(input, lambda: 0.05)

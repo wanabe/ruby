@@ -119,6 +119,7 @@ class VariableNameCheckTest < Test::Unit::TestCase
   @@does_exist = true
 
   def test_corrections_include_class_variable_name
+    omit unless Ractor.main?
     error = assert_raise(NameError){ @@doesnt_exist }
 
     assert_correction :@@does_exist, error.corrections
