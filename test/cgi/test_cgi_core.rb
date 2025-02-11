@@ -67,6 +67,7 @@ class CGICoreTest < Test::Unit::TestCase
 
 
   def test_cgi_core_params_POST
+    org_stdin = $stdin
     query_str = 'id=123&id=456&id=&str=%40h+%3D%7E+%2F%5E%24%2F'
     update_env(
       'REQUEST_METHOD'  => 'POST',
@@ -89,10 +90,11 @@ class CGICoreTest < Test::Unit::TestCase
     assert_equal('', cgi['*notfound*'])
     assert_equal([], cgi.params['*notfound*'])
   ensure
-    $stdin = STDIN
+    $stdin = org_stdin
   end
 
   def test_cgi_core_params_encoding_check
+    org_stdin = $stdin
     query_str = 'str=%BE%BE%B9%BE'
     update_env(
         'REQUEST_METHOD'  => 'POST',
@@ -128,7 +130,7 @@ class CGICoreTest < Test::Unit::TestCase
       assert(true)
     end
   ensure
-    $stdin = STDIN
+    $stdin = org_stdin
   end
 
 

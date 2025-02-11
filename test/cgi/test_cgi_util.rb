@@ -202,6 +202,7 @@ class CGIUtilTest < Test::Unit::TestCase
 
   include UnescapeHTMLTests
 
+  ESCAPE_HTML_MAP = {}
   Encoding.list.each do |enc|
     begin
       escaped = "&#39;&amp;&quot;&gt;&lt;".encode(enc)
@@ -209,15 +210,23 @@ class CGIUtilTest < Test::Unit::TestCase
     rescue Encoding::ConverterNotFoundError
       next
     else
-      define_method("test_cgi_escapeHTML:#{enc.name}") do
-        assert_equal(escaped, CGI.escapeHTML(unescaped))
-      end
-      define_method("test_cgi_unescapeHTML:#{enc.name}") do
-        assert_equal(unescaped, CGI.unescapeHTML(escaped))
-      end
+      ESCAPE_HTML_MAP[enc.name] = [escaped, unescaped]
+      method_suffix = enc.name.gsub("-", "_")
+      eval <<~SCRIPT
+        def test_cgi_escapeHTML_#{method_suffix}
+          escaped, unescaped = ESCAPE_HTML_MAP[#{enc.name.dump}]
+          assert_equal(escaped, CGI.escapeHTML(unescaped))
+        end
+        def test_cgi_unescapeHTML_#{method_suffix}
+          escaped, unescaped = ESCAPE_HTML_MAP[#{enc.name.dump}]
+          assert_equal(unescaped, CGI.unescapeHTML(escaped))
+        end
+      SCRIPT
     end
   end
+  Ractor.make_shareable(ESCAPE_HTML_MAP)
 
+  ESCAPE_MAP = {}
   Encoding.list.each do |enc|
     next unless enc.ascii_compatible?
     begin
@@ -226,14 +235,21 @@ class CGIUtilTest < Test::Unit::TestCase
     rescue Encoding::ConverterNotFoundError
       next
     else
-      define_method("test_cgi_escape:#{enc.name}") do
-        assert_equal(escaped, CGI.escape(unescaped))
-      end
-      define_method("test_cgi_unescape:#{enc.name}") do
-        assert_equal(unescaped, CGI.unescape(escaped, enc))
-      end
+      ESCAPE_MAP[enc.name] = [escaped, unescaped]
+      method_suffix = enc.name.gsub("-", "_")
+      eval <<~SCRIPT
+        def test_cgi_escape_#{method_suffix}
+          escaped, unescaped = ESCAPE_MAP[#{enc.name.dump}]
+          assert_equal(escaped, CGI.escape(unescaped))
+        end
+        def test_cgi_unescape_#{method_suffix}
+          escaped, unescaped = ESCAPE_MAP[#{enc.name.dump}]
+          assert_equal(unescaped, CGI.unescape(escaped, #{enc.name.dump}))
+        end
+      SCRIPT
     end
   end
+  Ractor.make_shareable(ESCAPE_MAP)
 
   def test_cgi_unescapeHTML_uppercasecharacter
     assert_equal("\xE3\x81\x82\xE3\x81\x84\xE3\x81\x86", CGI.unescapeHTML("&#x3042;&#x3044;&#X3046;"))

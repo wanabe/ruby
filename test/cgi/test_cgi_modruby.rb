@@ -102,11 +102,11 @@ end
 class Apache  #:nodoc:
 
   def self._reset
-    @request = Request.new
+    Ractor[:__test_cgi_apache_request] = Request.new
   end
 
   def self.request
-    return @request
+    return Ractor[:__test_cgi_apache_request]
   end
 
   class Request

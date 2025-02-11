@@ -99,6 +99,7 @@ class MultiPart
     'doc'      =>  'application/msword',
     'ppt'      =>  'application/vnd.ms-powerpoint',
   }
+  Ractor.make_shareable(MIME_TYPES)
 
 end
 
@@ -157,7 +158,12 @@ class CGIMultipartTest < Test::Unit::TestCase
     _prepare(@data)
     options = {:accept_charset=>"UTF-8"}
     options.merge! cgi_options
-    cgi = CGI.new(options)
+    begin
+      cgi = CGI.new(options)
+    rescue
+      p [$!, $@]
+      raise
+    end
     expected_names = @data.collect{|hash| hash[:name] }.sort
     assert_equal(expected_names, cgi.params.keys.sort)
     threshold = 1024*10
